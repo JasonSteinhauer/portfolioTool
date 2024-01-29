@@ -1,3 +1,25 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import axios from 'axios';
+
+axios.defaults.baseURL = 'http://localhost:3000'
+
+const userData = ref(null);
+
+const fetchUserData = async () => {
+  try {
+    const response = await axios.get('/userdata');
+    userData.value = response.data;
+  } catch (error) {
+    console.error('Fehler beim Abrufen von Benutzerdaten:', error);
+  }
+};
+
+onMounted(() => {
+  fetchUserData();
+});
+</script>
+
 <template>
   <div>
     <h1>Mitglieder</h1>
@@ -9,28 +31,5 @@
   </div>
 </template>
 
-<script>
-import { ref, onMounted } from 'vue';
-
-export default {
-  setup() {
-    const userData = ref(null);
-
-    onMounted(() => {
-      const eventSource = new EventSource('http://localhost:3000/events');
-
-      eventSource.onmessage = (event) => {
-        userData.value = JSON.parse(event.data);
-      };
-    });
-
-    return {
-      userData
-    };
-  }
-};
-</script>
-
 <style scoped>
-/* CSS-Stile */
 </style>
