@@ -20,3 +20,12 @@ export const E2E_OWNERS = {
 } as const;
 
 export type E2EProject = keyof typeof E2E_OWNERS;
+
+/** Owner mit bereits eingerichteter 2FA – für Fach-Tests, die nicht den Enrollment-Flow testen. */
+export const E2E_READY_OWNERS = {
+  desktop: { email: "e2e-ready-desktop@example.test", name: "Ready Desktop", ip: "198.51.100.30" },
+  mobile: { email: "e2e-ready-mobile@example.test", name: "Ready Mobile", ip: "198.51.100.40" },
+} as const;
+
+/** Hier legt das Global-Setup die TOTP-Secrets der fertig eingerichteten Owner ab (gitignored). */
+export const E2E_STATE_FILE = "tests/e2e/.state/secrets.json";
