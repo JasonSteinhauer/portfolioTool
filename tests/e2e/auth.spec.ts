@@ -55,7 +55,7 @@ test("geschützte Bereiche leiten ohne Anmeldung zum Login", async ({ page }) =>
 
 test("Better-Auth-HTTP-Endpunkte sind nicht öffentlich erreichbar", async ({ request }) => {
   const signUp = await request.post("/api/auth/sign-up/email", {
-    data: { email: "angreifer@example.test", password: "Angreifer-Passwort-1", name: "x" },
+    data: { email: "angreifer@example.test", password: "Angreifer-Passwort-1", name: "x" }, // gitleaks:allow – synthetisches Testpasswort
   });
   expect(signUp.status()).toBe(404);
   expect((await request.get("/api/auth/get-session")).status()).toBe(404);

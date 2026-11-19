@@ -12,7 +12,7 @@ const client = postgres(inject("testDatabaseUrl"), { max: 2, onnotice: () => {} 
 const db = drizzle(client, { schema });
 const auth = createAuth(db, {
   APP_URL: "http://localhost:3000",
-  BETTER_AUTH_SECRET: "test-secret-0123456789-abcdefghijklmnop",
+  BETTER_AUTH_SECRET: "test-secret-0123456789-abcdefghijklmnop", // gitleaks:allow – nur für Tests
   NODE_ENV: "test",
 });
 

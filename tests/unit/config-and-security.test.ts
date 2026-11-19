@@ -3,7 +3,7 @@ import { parseEnv } from "@/lib/config/env";
 import { buildContentSecurityPolicy } from "@/lib/security/csp";
 import { isActive } from "@/ui/nav-items";
 
-const SECRET = "q8Zr3vLm1XpT6wYc0NfB4sHj7KdEaUiO2gR5tV9n";
+const SECRET = "q8Zr3vLm1XpT6wYc0NfB4sHj7KdEaUiO2gR5tV9n"; // gitleaks:allow – Testwert
 
 describe("parseEnv", () => {
   it("akzeptiert eine gültige Konfiguration und setzt Defaults", () => {

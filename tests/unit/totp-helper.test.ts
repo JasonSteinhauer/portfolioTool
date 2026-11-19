@@ -23,7 +23,7 @@ describe("TOTP-Testhelfer", () => {
 
   it("erfüllt die TOTP-Testvektoren aus RFC 6238", () => {
     // Base32 von "12345678901234567890"
-    const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+    const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"; // gitleaks:allow – öffentlicher RFC-6238-Testvektor
     expect(base32Decode(secret).equals(rfcKey)).toBe(true);
     expect(totp(secret, 59_000)).toBe("287082");
     expect(totp(secret, 1_111_111_109_000)).toBe("081804");
