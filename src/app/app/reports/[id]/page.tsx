@@ -9,6 +9,8 @@ import { Button } from "@/ui/button";
 import { Badge, Meta } from "@/ui/card";
 import { PageHeader } from "@/ui/workspace-shell";
 import { trashReportAction } from "../actions";
+import { listFavoriteIds } from "@/modules/portfolio/service";
+import { createPageFromReportAction, toggleFavoriteAction } from "../../portfolio/actions";
 import { FinalizeForm } from "./finalize-form";
 
 export const metadata: Metadata = { title: "Report" };
@@ -43,6 +45,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     throw error;
   });
 
+  const favorite = (await listFavoriteIds(getDb(), actor, "report")).has(report.id);
   const fields = report.type.fieldSchema
     .map((f) => ({ ...f, display: formatValue(report.structuredFields[f.key], f.type, f.options) }))
     .filter((f) => f.display !== null);
@@ -75,6 +78,20 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
               Versionen
             </Link>
             {report.status !== "final" ? <FinalizeForm reportId={report.id} labels={labels} /> : null}
+            <form action={toggleFavoriteAction}>
+              <input type="hidden" name="itemType" value="report" />
+              <input type="hidden" name="itemId" value={report.id} />
+              <input type="hidden" name="returnTo" value={`/app/reports/${report.id}`} />
+              <Button type="submit" variant="ghost" size="sm" aria-pressed={favorite}>
+                {favorite ? "★ Favorit" : "☆ Als Favorit"}
+              </Button>
+            </form>
+            <form action={createPageFromReportAction}>
+              <input type="hidden" name="reportId" value={report.id} />
+              <Button type="submit" variant="secondary" size="sm">
+                Portfolio-Seite
+              </Button>
+            </form>
           </div>
         }
       />

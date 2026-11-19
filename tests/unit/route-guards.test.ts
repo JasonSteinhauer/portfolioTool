@@ -57,3 +57,13 @@ describe("API-Routen", () => {
     });
   }
 });
+
+describe("Viewer-Seiten (/p)", () => {
+  const viewerPages = walk(join(process.cwd(), "src/app/p")).filter((f) => f.endsWith("page.tsx"));
+  it("findet Viewer-Seiten", () => expect(viewerPages.length).toBeGreaterThanOrEqual(2));
+  for (const file of viewerPages) {
+    it(`${relative(process.cwd(), file)} prüft den Freigabelink`, () => {
+      expect(readFileSync(file, "utf8")).toMatch(/await getViewerLink\(\)/);
+    });
+  }
+});
