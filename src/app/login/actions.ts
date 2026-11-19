@@ -13,8 +13,6 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   switch (result.data.next) {
     case "two-factor":
       redirect("/login/verify");
-    case "enroll-two-factor":
-      redirect("/onboarding/2fa");
     case "app":
       redirect("/app");
   }
@@ -22,7 +20,11 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
 
 export async function verifyAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const result = await verifySecondFactor(
-    { method: formData.get("method") === "backup" ? "backup" : "totp", code: formData.get("code") },
+    {
+      method: formData.get("method") === "backup" ? "backup" : "totp",
+      code: formData.get("code"),
+      trustDevice: formData.get("trustDevice") === "on",
+    },
     await headers(),
   );
   if (!result.ok) return { error: result.error };

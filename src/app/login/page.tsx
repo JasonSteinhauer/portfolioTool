@@ -11,11 +11,7 @@ export default async function LoginPage() {
   if (session) redirect("/app");
 
   return (
-    <AuthFrame
-      step="Schritt 1 / 2 · Passwort"
-      title="Anmelden"
-      intro="Privater Arbeitsbereich. Zugang nur für den Owner."
-    >
+    <AuthFrame step="Anmeldung" title="Anmelden" intro="Privater Arbeitsbereich. Zugang nur für den Owner.">
       <LoginForm />
     </AuthFrame>
   );

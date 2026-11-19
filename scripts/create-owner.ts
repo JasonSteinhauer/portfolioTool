@@ -4,7 +4,7 @@
  *   pnpm owner:create --email du@example.org --name "Dein Name"
  *
  * Das Passwort wird verdeckt abgefragt (oder für CI/Tests aus OWNER_PASSWORD gelesen).
- * Beim ersten Login wird die Einrichtung der Zwei-Faktor-Authentifizierung erzwungen.
+ * Die Zwei-Faktor-Authentifizierung lässt sich danach in den Einstellungen einrichten.
  */
 import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
@@ -58,7 +58,7 @@ async function main() {
   const db = drizzle(sql, { schema });
   try {
     const owner = await createOwner(createAuth(db, env), db, { email: values.email, name: values.name, password });
-    console.log(`✓ Owner angelegt: ${owner.email}. Beim ersten Login wird 2FA eingerichtet.`);
+    console.log(`✓ Owner angelegt: ${owner.email}. 2FA kannst du in den Einstellungen einrichten.`);
   } finally {
     await sql.end();
   }

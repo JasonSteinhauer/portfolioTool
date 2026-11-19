@@ -49,7 +49,7 @@ export const loginInputSchema = z.object({
   password: z.string().min(1).max(PASSWORD_MAX_LENGTH),
 });
 
-export type LoginOutcome = { next: "two-factor" | "enroll-two-factor" | "app" };
+export type LoginOutcome = { next: "two-factor" | "app" };
 
 export async function signIn(input: unknown, requestHeaders: Headers): Promise<Result<LoginOutcome>> {
   const db = getDb();
@@ -94,10 +94,10 @@ export async function signIn(input: unknown, requestHeaders: Headers): Promise<R
       actorType: "user",
       actorId: user?.id ?? null,
       action: "auth.login.succeeded",
-      metadata: { stage: "password", twoFactorPending: true },
+      metadata: { stage: "password", twoFactor: false },
       ipHash,
     });
-    return { ok: true, data: { next: "enroll-two-factor" } };
+    return { ok: true, data: { next: "app" } };
   } catch (error) {
     await recordAudit(db, {
       actorType: "user",
@@ -121,8 +121,13 @@ export const secondFactorSchema = z.discriminatedUnion("method", [
       .string()
       .trim()
       .regex(/^\d{6}$/, "Sechsstelliger Code erwartet"),
+    trustDevice: z.boolean().default(false),
   }),
-  z.object({ method: z.literal("backup"), code: z.string().trim().min(6).max(32) }),
+  z.object({
+    method: z.literal("backup"),
+    code: z.string().trim().min(6).max(32),
+    trustDevice: z.boolean().default(false),
+  }),
 ]);
 
 export async function verifySecondFactor(input: unknown, requestHeaders: Headers): Promise<Result> {
@@ -143,9 +148,12 @@ export async function verifySecondFactor(input: unknown, requestHeaders: Headers
     const auth = getAuth();
     const result =
       parsed.data.method === "totp"
-        ? await auth.api.verifyTOTP({ body: { code: parsed.data.code, trustDevice: false }, headers: requestHeaders })
+        ? await auth.api.verifyTOTP({
+            body: { code: parsed.data.code, trustDevice: parsed.data.trustDevice },
+            headers: requestHeaders,
+          })
         : await auth.api.verifyBackupCode({
-            body: { code: parsed.data.code, trustDevice: false },
+            body: { code: parsed.data.code, trustDevice: parsed.data.trustDevice },
             headers: requestHeaders,
           });
 
@@ -270,6 +278,25 @@ export async function regenerateBackupCodes(
       ipHash,
     });
     return { ok: true, data: { backupCodes: result.backupCodes } };
+  } catch (error) {
+    if (!isAPIError(error)) throw error;
+    return { ok: false, error: "Das Passwort ist falsch." };
+  }
+}
+
+export async function disableTwoFactor(actor: Actor, password: string, requestHeaders: Headers): Promise<Result> {
+  const db = getDb();
+  const { ipHash } = requestContext(requestHeaders);
+  const limit = await consumeRateLimit(db, `sensitive:${actor.userId}`, RATE_LIMITS.sensitivePerUser);
+  if (!limit.allowed) return { ok: false, error: "Zu viele Versuche. Bitte später erneut versuchen." };
+
+  try {
+    await getAuth().api.disableTwoFactor({
+      body: { password: password.slice(0, PASSWORD_MAX_LENGTH) },
+      headers: requestHeaders,
+    });
+    await recordAudit(db, { actorType: "user", actorId: actor.userId, action: "auth.2fa.disabled", ipHash });
+    return { ok: true };
   } catch (error) {
     if (!isAPIError(error)) throw error;
     return { ok: false, error: "Das Passwort ist falsch." };

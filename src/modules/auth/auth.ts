@@ -9,8 +9,8 @@ import * as schema from "@/lib/db/schema";
 export const PASSWORD_MIN_LENGTH = 12;
 export const PASSWORD_MAX_LENGTH = 128;
 
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 3; // 3 Tage
-export const SESSION_UPDATE_AGE_SECONDS = 60 * 60; // Verlängerung höchstens stündlich
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 Tage, verlängert sich bei Nutzung
+export const SESSION_UPDATE_AGE_SECONDS = 60 * 60 * 24; // Verlängerung höchstens täglich
 
 /**
  * Konfiguration von Better Auth. Bewusst als Fabrik ohne `server-only`, damit Skripte
@@ -71,6 +71,8 @@ export function createAuth(
         issuer: "dev.portfolio",
         backupCodeOptions: { amount: 10, length: 10 },
         accountLockout: { enabled: true, maxFailedAttempts: 8, durationSeconds: 15 * 60 },
+        // "Diesem Gerät vertrauen": 30 Tage kein Code auf diesem Gerät.
+        trustDeviceMaxAge: 60 * 60 * 24 * 30,
       }),
       // Setzt Cookies, wenn auth.api.* aus Server Actions aufgerufen wird. Muss das letzte Plugin sein.
       nextCookies(),

@@ -25,25 +25,24 @@ export type CurrentUser = {
   twoFactorEnabled: boolean;
 };
 
-/** Angemeldet, aber 2FA evtl. noch nicht eingerichtet (nur für das 2FA-Onboarding). */
+/** Angemeldet (ohne Rollenprüfung) – für die 2FA-Einrichtung. */
 export async function requireSession() {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
   return session;
 }
 
-/** Vollwertig angemeldeter Owner mit aktiver 2FA. */
+/** Angemeldeter Owner. 2FA ist optional (Entscheidung des Owners, siehe ADR 0004). */
 export async function requireOwner(): Promise<{ actor: Actor; user: CurrentUser; sessionId: string }> {
   const session = await getCurrentSession();
   if (!session) redirect("/login");
 
   const user = session.user as typeof session.user & { role?: string | null; twoFactorEnabled?: boolean | null };
   if (user.role !== "owner") redirect("/login");
-  if (!user.twoFactorEnabled) redirect("/onboarding/2fa");
 
   return {
     actor: { type: "user", userId: user.id, role: "owner" },
-    user: { id: user.id, name: user.name, email: user.email, twoFactorEnabled: true },
+    user: { id: user.id, name: user.name, email: user.email, twoFactorEnabled: Boolean(user.twoFactorEnabled) },
     sessionId: session.session.id,
   };
 }

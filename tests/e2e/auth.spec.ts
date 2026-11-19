@@ -4,8 +4,8 @@ import { E2E_OWNERS, E2E_PASSWORD, type E2EProject } from "./env";
 
 /**
  * Authentifizierung End-to-End – läuft pro Projekt (Desktop/Mobil) seriell mit eigenem Owner.
- * Deckt ab: Schutz der Routen, Login, erzwungene 2FA-Einrichtung, Logout, Login mit TOTP und
- * Backup-Code, Sitzungen widerrufen, Rate-Limiting, keine öffentlichen Auth-Endpunkte.
+ * Deckt ab: Schutz der Routen, Login, optionale 2FA (einrichten, Gerät vertrauen, ausschalten), Logout,
+ * Login mit TOTP und Backup-Code, Sitzungen widerrufen, Rate-Limiting, keine öffentlichen Auth-Endpunkte.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -71,15 +71,18 @@ test("falsche Zugangsdaten ergeben eine generische Fehlermeldung", async ({ page
   await expect(formAlert(page)).toHaveText("E-Mail-Adresse oder Passwort ist falsch.");
 });
 
-test("erster Login erzwingt die Einrichtung der Zwei-Faktor-Authentifizierung", async ({ page }, testInfo) => {
+test("Login ohne 2FA führt direkt in den Workspace, 2FA lässt sich optional einrichten", async ({ page }, testInfo) => {
   const errors = collectConsoleErrors(page);
   const owner = ownerFor(testInfo.project.name);
 
   await submitPassword(page, owner.email);
-  await expect(page).toHaveURL(/\/onboarding\/2fa$/);
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Hallo ${owner.name.split(" ")[0]}`);
 
-  // Ohne 2FA kein Zugang zum Workspace – auch nicht per direkter URL.
   await page.goto("/app/settings");
+  const card = page.getByTestId("two-factor-card");
+  await expect(card).toContainText("Aus");
+  await card.getByRole("link", { name: "Jetzt einrichten" }).click();
   await expect(page).toHaveURL(/\/onboarding\/2fa$/);
 
   await page.getByLabel("Passwort zur Bestätigung").fill("Falsches-Passwort-123");
@@ -95,7 +98,6 @@ test("erster Login erzwingt die Einrichtung der Zwei-Faktor-Authentifizierung", 
   backupCodes = await page.getByTestId("backup-codes").locator("li").allTextContents();
   expect(backupCodes).toHaveLength(10);
 
-  // Falscher Code und fehlende Bestätigung werden abgelehnt.
   await page.getByLabel("Aktueller Code aus der App").fill("000000");
   await page.getByLabel("Ich habe die Backup-Codes sicher gespeichert.").check();
   await page.getByRole("button", { name: "Zwei-Faktor-Schutz aktivieren" }).click();
@@ -105,12 +107,12 @@ test("erster Login erzwingt die Einrichtung der Zwei-Faktor-Authentifizierung", 
   await page.getByLabel("Ich habe die Backup-Codes sicher gespeichert.").check();
   await page.getByRole("button", { name: "Zwei-Faktor-Schutz aktivieren" }).click();
 
-  await expect(page).toHaveURL(/\/app$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Hallo ${owner.name.split(" ")[0]}`);
+  await expect(page).toHaveURL(/\/app\/settings$/);
+  await expect(page.getByTestId("two-factor-card")).toContainText("Aktiv");
   expect(errors).toEqual([]);
 });
 
-test("Session-Cookie ist HttpOnly und SameSite=Lax", async ({ page, context }, testInfo) => {
+test("Session-Cookie ist HttpOnly, SameSite=Lax und hält 30 Tage", async ({ page, context }, testInfo) => {
   const owner = ownerFor(testInfo.project.name);
   await submitPassword(page, owner.email);
   await expect(page).toHaveURL(/\/login\/verify$/);
@@ -123,6 +125,9 @@ test("Session-Cookie ist HttpOnly und SameSite=Lax", async ({ page, context }, t
   expect(sessionCookie!.httpOnly).toBe(true);
   expect(sessionCookie!.sameSite).toBe("Lax");
   expect(sessionCookie!.name.startsWith("__Secure-")).toBe(true);
+  const daysValid = (sessionCookie!.expires * 1000 - Date.now()) / 86_400_000;
+  expect(daysValid).toBeGreaterThan(29);
+  expect(daysValid).toBeLessThan(31);
 
   // Abmelden sperrt den Workspace wieder.
   await page.locator("header").getByRole("button", { name: "Abmelden" }).click();
@@ -192,6 +197,49 @@ test("andere Sitzung lässt sich in den Einstellungen beenden", async ({ page, b
   await otherContext.close();
 });
 
+test("„Diesem Gerät vertrauen“ überspringt den Code beim nächsten Login", async ({ browser }, testInfo) => {
+  const owner = ownerFor(testInfo.project.name);
+  const context = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": owner.ip } });
+  const page = await context.newPage();
+
+  await submitPassword(page, owner.email);
+  await expect(page).toHaveURL(/\/login\/verify$/);
+  await page.getByLabel("Code aus der Authenticator-App").fill(await freshTotp(page));
+  await page.getByLabel("Diesem Gerät 30 Tage vertrauen").check();
+  await page.getByRole("button", { name: "Bestätigen" }).click();
+  await expect(page).toHaveURL(/\/app$/);
+
+  // Sitzung beenden (Cookie weg), Vertrauens-Cookie bleibt → Login ohne Code.
+  const cookies = await context.cookies();
+  await context.clearCookies();
+  await context.addCookies(cookies.filter((c) => !c.name.includes("session")));
+  await submitPassword(page, owner.email);
+  await expect(page).toHaveURL(/\/app$/);
+  await context.close();
+});
+
+test("Zwei-Faktor-Schutz lässt sich mit Passwort wieder ausschalten", async ({ page }, testInfo) => {
+  const owner = ownerFor(testInfo.project.name);
+  await submitPassword(page, owner.email);
+  await page.getByLabel("Code aus der Authenticator-App").fill(await freshTotp(page));
+  await page.getByRole("button", { name: "Bestätigen" }).click();
+  await expect(page).toHaveURL(/\/app$/);
+
+  await page.goto("/app/settings");
+  await page.locator("summary", { hasText: "Zwei-Faktor-Schutz ausschalten" }).click();
+  await page.getByLabel("Passwort zum Ausschalten").fill("Falsches-Passwort-123");
+  await page.getByRole("button", { name: "Zwei-Faktor-Schutz ausschalten" }).click();
+  await expect(formAlert(page)).toHaveText("Das Passwort ist falsch.");
+
+  await page.getByLabel("Passwort zum Ausschalten").fill(E2E_PASSWORD);
+  await page.getByRole("button", { name: "Zwei-Faktor-Schutz ausschalten" }).click();
+  await expect(page.getByTestId("two-factor-card")).toContainText("Aus");
+
+  await page.locator("header").getByRole("button", { name: "Abmelden" }).click();
+  await submitPassword(page, owner.email);
+  await expect(page).toHaveURL(/\/app$/);
+});
+
 test("zu viele Fehlversuche werden gebremst", async ({ browser }, testInfo) => {
   // Eigene IP, damit das Limit die anderen Tests nicht beeinflusst.
   const ip = testInfo.project.name === "desktop" ? "198.51.100.11" : "198.51.100.21";
@@ -199,7 +247,7 @@ test("zu viele Fehlversuche werden gebremst", async ({ browser }, testInfo) => {
   const page = await context.newPage();
   const owner = ownerFor(testInfo.project.name);
 
-  for (let attempt = 1; attempt <= 5; attempt++) {
+  for (let attempt = 1; attempt <= 10; attempt++) {
     await submitPassword(page, owner.email, `Falsches-Passwort-${attempt}`);
     await expect(formAlert(page)).toHaveText("E-Mail-Adresse oder Passwort ist falsch.");
   }
