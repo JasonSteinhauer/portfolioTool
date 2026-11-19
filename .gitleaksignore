@@ -1,0 +1,6 @@
+# Bekannte Fehlalarme (synthetische Testwerte) im Commit 6db11f8 – Format: commit:datei:regel:zeile
+# Neue Testwerte stattdessen direkt in der Zeile mit "gitleaks:allow" kommentieren.
+6db11f862003da74489cf15e36ffb11d65cbbddf:tests/e2e/auth.spec.ts:generic-api-key:58
+6db11f862003da74489cf15e36ffb11d65cbbddf:tests/integration/auth.test.ts:generic-api-key:15
+6db11f862003da74489cf15e36ffb11d65cbbddf:tests/unit/config-and-security.test.ts:generic-api-key:6
+6db11f862003da74489cf15e36ffb11d65cbbddf:tests/unit/totp-helper.test.ts:generic-api-key:26

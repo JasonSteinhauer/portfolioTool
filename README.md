@@ -3,8 +3,9 @@
 Privates, KI-gestütztes Entwicklungsportfolio: **Dokumentieren · Entwickeln · Präsentieren**.
 Ein modularer Monolith (Next.js + TypeScript + PostgreSQL), entworfen für sicheren Betrieb mit minimalen Kosten.
 
-> **Status: Inkrement 0 – Fundament.** Projektgerüst, Datenmodell mit Migrationen, Design-System,
-> Security-Header/CSP, Tests und CI. Login folgt in Inkrement 1. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
+> **Status: Inkrement 1 – Anmeldung.** Login mit Passwort und optionaler 2FA (TOTP, Backup-Codes, Gerät merken),
+> Sitzungsverwaltung, Rate-Limiting, Audit-Log und zentrale Autorisierung. Die Fachbereiche folgen ab
+> Inkrement 2. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Schnellstart
 
@@ -15,8 +16,12 @@ pnpm install
 cp .env.example .env.local        # Werte prüfen
 docker compose up -d              # Postgres (+ MinIO für später)
 pnpm db:migrate && pnpm db:seed   # Schema + 6 Report-Typen
+pnpm owner:create --email du@example.org --name "Dein Name"   # Passwort wird verdeckt abgefragt
 pnpm dev                          # http://localhost:3000
 ```
+
+Die Zwei-Faktor-Authentifizierung ist optional und wird unter **Einstellungen** eingerichtet (Authenticator-App,
+z. B. Aegis oder 2FAS). Die Backup-Codes im Passwortmanager sichern.
 
 Das Design-System ist in der Entwicklung unter <http://localhost:3000/styleguide> zu sehen
 (in Produktion bewusst nicht erreichbar).
@@ -35,6 +40,7 @@ Das Design-System ist in der Entwicklung unter <http://localhost:3000/styleguide
 | `pnpm check`                     | Lint + Typen + Format + Unit + Integration                   |
 | `pnpm db:generate --name <name>` | Migration aus Schemaänderung erzeugen                        |
 | `pnpm db:migrate` · `db:seed`    | Migrationen anwenden · Standarddaten einspielen (idempotent) |
+| `pnpm owner:create`              | Owner-Konto anlegen (Registrierung ist deaktiviert)          |
 
 Lokal mit installiertem Chrome statt Playwright-Browser: `PW_CHANNEL=chrome pnpm test:e2e`.
 
@@ -59,6 +65,9 @@ docs/adr/             Architekturentscheidungen
 - Strikte Content-Security-Policy mit Nonce, keine externen Quellen (Schriften werden selbst gehostet, per `postinstall` aus npm kopiert).
 - Inhalte sind validiertes JSON; Links nur `http(s)`/`mailto`. Gerendert wird nur über eigene Komponenten.
 - Audit-Log ist auf Datenbankebene append-only (Trigger).
+- Login mit Passwort und optionalem zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
+- Jede Workspace-Seite und Server Action prüft die Anmeldung selbst (per Test erzwungen).
+- Großzügige Rate-Limits für Login und 2FA (gegen Bots); generische Fehlermeldungen ohne Konto-Enumeration.
 - Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
 - Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 

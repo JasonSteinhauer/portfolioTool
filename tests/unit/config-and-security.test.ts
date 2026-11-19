@@ -3,17 +3,29 @@ import { parseEnv } from "@/lib/config/env";
 import { buildContentSecurityPolicy } from "@/lib/security/csp";
 import { isActive } from "@/ui/nav-items";
 
+const SECRET = "q8Zr3vLm1XpT6wYc0NfB4sHj7KdEaUiO2gR5tV9n"; // gitleaks:allow – Testwert
+
 describe("parseEnv", () => {
   it("akzeptiert eine gültige Konfiguration und setzt Defaults", () => {
-    const env = parseEnv({ DATABASE_URL: "postgres://u:p@localhost:5432/db" });
+    const env = parseEnv({ DATABASE_URL: "postgres://u:p@localhost:5432/db", BETTER_AUTH_SECRET: SECRET });
     expect(env.NODE_ENV).toBe("development");
     expect(env.APP_URL).toBe("http://localhost:3000");
   });
 
   it("meldet fehlende und ungültige Werte verständlich", () => {
     expect(() => parseEnv({})).toThrow(/DATABASE_URL/);
-    expect(() => parseEnv({ DATABASE_URL: "mysql://x@y/z" })).toThrow(/postgres/);
-    expect(() => parseEnv({ DATABASE_URL: "postgres://u@h/db", NODE_ENV: "staging" })).toThrow(/NODE_ENV/);
+    expect(() => parseEnv({ DATABASE_URL: "mysql://x@y/z", BETTER_AUTH_SECRET: SECRET })).toThrow(/postgres/);
+    expect(() =>
+      parseEnv({ DATABASE_URL: "postgres://u@h/db", NODE_ENV: "staging", BETTER_AUTH_SECRET: SECRET }),
+    ).toThrow(/NODE_ENV/);
+  });
+
+  it("verlangt ein starkes Auth-Secret", () => {
+    const base = { DATABASE_URL: "postgres://u@h/db" };
+    expect(() => parseEnv(base)).toThrow(/BETTER_AUTH_SECRET/);
+    expect(() => parseEnv({ ...base, BETTER_AUTH_SECRET: "kurz" })).toThrow(/mindestens 32/);
+    expect(() => parseEnv({ ...base, BETTER_AUTH_SECRET: "x".repeat(40) })).toThrow(/zu schwach/);
+    expect(() => parseEnv({ ...base, BETTER_AUTH_SECRET: "ab".repeat(20) })).toThrow(/zu schwach/);
   });
 });
 

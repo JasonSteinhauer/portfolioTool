@@ -1,23 +1,23 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Fundament", () => {
-  test("Startseite lädt ohne Konsolenfehler oder CSP-Verstöße", async ({ page }) => {
+  test("Login-Seite lädt ohne Konsolenfehler oder CSP-Verstöße", async ({ page }) => {
     const problems: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error" || msg.type() === "warning") problems.push(msg.text());
     });
     page.on("pageerror", (err) => problems.push(String(err)));
 
-    const response = await page.goto("/");
+    const response = await page.goto("/login");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Privater Arbeitsbereich");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Anmelden");
     await expect(page.locator("html")).toHaveAttribute("lang", "de");
     await page.waitForLoadState("networkidle");
     expect(problems).toEqual([]);
   });
 
   test("liefert strikte Security-Header mit passender Nonce", async ({ page }) => {
-    const response = await page.goto("/");
+    const response = await page.goto("/login");
     const headers = response!.headers();
 
     const csp = headers["content-security-policy"];
@@ -42,13 +42,13 @@ test.describe("Fundament", () => {
   });
 
   test("Nonce ist pro Request neu", async ({ request }) => {
-    const a = (await request.get("/")).headers()["content-security-policy"];
-    const b = (await request.get("/")).headers()["content-security-policy"];
+    const a = (await request.get("/login")).headers()["content-security-policy"];
+    const b = (await request.get("/login")).headers()["content-security-policy"];
     expect(a).not.toBe(b);
   });
 
   test("Seiten werden nicht indexiert", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/login");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
   });
 
