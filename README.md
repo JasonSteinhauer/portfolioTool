@@ -3,9 +3,9 @@
 Privates, KI-gestütztes Entwicklungsportfolio: **Dokumentieren · Entwickeln · Präsentieren**.
 Ein modularer Monolith (Next.js + TypeScript + PostgreSQL), entworfen für sicheren Betrieb mit minimalen Kosten.
 
-> **Status: Inkrement 2 – Reports.** Anmeldung mit Pflicht-2FA, Sitzungen, Rate-Limits, Audit und
-> Autorisierung (Inkrement 1) plus Reports: sechs Typen mit Formularen, Blockeditor, Autosave mit
-> Konflikterkennung, Live-Vorschau, Versionen, Volltextsuche und Papierkorb. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
+> **Status: Inkrement 2 – Reports.** Anmeldung mit optionaler 2FA, Sitzungen, Rate-Limits, Audit und
+> Autorisierung (Inkrement 1) plus Reports: sechs Typen mit Formularen, Blockeditor, Speichern beim Verlassen
+> mit Konflikterkennung, Live-Vorschau, Versionen, Volltextsuche und Papierkorb. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Schnellstart
 
@@ -20,8 +20,8 @@ pnpm owner:create --email du@example.org --name "Dein Name"   # Passwort wird ve
 pnpm dev                          # http://localhost:3000
 ```
 
-Beim ersten Login wird die Zwei-Faktor-Authentifizierung eingerichtet (Authenticator-App, z. B. Aegis oder
-2FAS). Die Backup-Codes unbedingt im Passwortmanager sichern.
+Die Zwei-Faktor-Authentifizierung ist optional und wird unter **Einstellungen** eingerichtet (Authenticator-App,
+z. B. Aegis oder 2FAS). Die Backup-Codes im Passwortmanager sichern.
 
 Das Design-System ist in der Entwicklung unter <http://localhost:3000/styleguide> zu sehen
 (in Produktion bewusst nicht erreichbar).
@@ -65,9 +65,9 @@ docs/adr/             Architekturentscheidungen
 - Strikte Content-Security-Policy mit Nonce, keine externen Quellen (Schriften werden selbst gehostet, per `postinstall` aus npm kopiert).
 - Inhalte sind validiertes JSON; Links nur `http(s)`/`mailto`. Gerendert wird nur über eigene Komponenten.
 - Audit-Log ist auf Datenbankebene append-only (Trigger).
-- Login nur mit Passwort **und** zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
+- Login mit Passwort und optionalem zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
 - Jede Workspace-Seite und Server Action prüft die Anmeldung selbst (per Test erzwungen).
-- Rate-Limits für Login und 2FA; generische Fehlermeldungen ohne Konto-Enumeration.
+- Großzügige Rate-Limits für Login und 2FA (gegen Bots); generische Fehlermeldungen ohne Konto-Enumeration.
 - Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
 - Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 

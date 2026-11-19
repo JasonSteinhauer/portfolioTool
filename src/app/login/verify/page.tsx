@@ -12,7 +12,7 @@ export default async function VerifyPage() {
 
   return (
     <AuthFrame
-      step="Schritt 2 / 2 · Zweiter Faktor"
+      step="Zweiter Faktor"
       title="Bestätigen"
       intro={
         <>

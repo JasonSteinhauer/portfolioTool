@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { listOwnSessions } from "@/modules/auth/service";
 import { requireOwner } from "@/modules/auth/session";
 import { Button } from "@/ui/button";
@@ -6,6 +7,7 @@ import { Badge, Card, Meta } from "@/ui/card";
 import { PageHeader } from "@/ui/workspace-shell";
 import { revokeSessionAction } from "../actions";
 import { BackupCodesForm } from "./backup-codes-form";
+import { DisableTwoFactorForm } from "./disable-two-factor-form";
 
 export const metadata: Metadata = { title: "Einstellungen" };
 
@@ -50,10 +52,7 @@ export default async function SettingsPage() {
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Card className="flex flex-col gap-4 p-6">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold">Konto</h2>
-            <Badge tone="accent">2FA aktiv</Badge>
-          </div>
+          <h2 className="text-lg font-semibold">Konto</h2>
           <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-text-secondary">Name</dt>
             <dd>{user.name}</dd>
@@ -62,13 +61,41 @@ export default async function SettingsPage() {
           </dl>
         </Card>
 
-        <Card className="flex flex-col gap-4 p-6">
-          <h2 className="text-lg font-semibold">Backup-Codes</h2>
-          <p className="text-sm text-text-secondary">
-            Für den Fall, dass die Authenticator-App nicht verfügbar ist. Neu erzeugen macht alle bisherigen Codes
-            ungültig.
-          </p>
-          <BackupCodesForm />
+        <Card className="flex flex-col gap-4 p-6" data-testid="two-factor-card">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold">Zwei-Faktor-Schutz</h2>
+            <Badge tone={user.twoFactorEnabled ? "accent" : "default"}>{user.twoFactorEnabled ? "Aktiv" : "Aus"}</Badge>
+          </div>
+          {user.twoFactorEnabled ? (
+            <>
+              <p className="text-sm text-text-secondary">
+                Backup-Codes helfen, wenn die Authenticator-App nicht verfügbar ist. Neu erzeugen macht alle bisherigen
+                Codes ungültig.
+              </p>
+              <BackupCodesForm />
+              <details className="border-t border-line-subtle pt-4">
+                <summary className="cursor-pointer text-sm text-text-secondary hover:text-text-primary">
+                  Zwei-Faktor-Schutz ausschalten
+                </summary>
+                <div className="pt-4">
+                  <DisableTwoFactorForm />
+                </div>
+              </details>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-text-secondary">
+                Optional. Mit einem zweiten Faktor reicht ein geleaktes Passwort allein nicht mehr für den Zugriff. Auf
+                eigenen Geräten kannst du einen Code 30 Tage lang merken lassen.
+              </p>
+              <Link
+                href="/onboarding/2fa"
+                className="inline-flex h-10 items-center justify-center border-2 border-border-strong px-4 text-sm hover:bg-hover-surface"
+              >
+                Jetzt einrichten
+              </Link>
+            </>
+          )}
         </Card>
 
         <Card className="flex flex-col gap-4 p-6 lg:col-span-2">

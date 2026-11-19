@@ -15,9 +15,9 @@ export type RateLimitResult = {
 /** Zentrale Limits – an einer Stelle anpassbar und testbar. */
 export const RATE_LIMITS = {
   /** Fehlversuche pro E-Mail + IP */
-  loginPerAccount: { limit: 5, windowMs: 15 * 60_000 },
+  loginPerAccount: { limit: 10, windowMs: 15 * 60_000 },
   /** Alle Login-Versuche pro IP (schützt vor Credential Stuffing über viele Konten) */
-  loginPerIp: { limit: 30, windowMs: 15 * 60_000 },
+  loginPerIp: { limit: 50, windowMs: 15 * 60_000 },
   /** 2FA-Code-Eingaben pro IP (zusätzlich sperrt Better Auth das Konto nach 8 Fehlern) */
   twoFactorPerIp: { limit: 10, windowMs: 5 * 60_000 },
   /** Sensible Einstellungen (2FA aktivieren, Backup-Codes neu erzeugen) */

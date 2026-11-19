@@ -36,6 +36,13 @@ export function VerifyForm() {
           {(p) => <Input {...p} key="backup" name="code" autoComplete="off" required autoFocus className="font-mono" />}
         </Field>
       )}
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" name="trustDevice" className="mt-1 size-4 accent-[var(--accent)]" />
+        <span>
+          Diesem Gerät 30 Tage vertrauen
+          <span className="block text-xs text-text-secondary">Nur auf eigenen Geräten aktivieren.</span>
+        </span>
+      </label>
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Wird geprüft …" : "Bestätigen"}
       </Button>

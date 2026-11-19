@@ -25,5 +25,5 @@ export async function confirmEnrollmentAction(_prev: ConfirmState, formData: For
   }
   const result = await confirmTwoFactorEnrollment(session.user.id, String(formData.get("code") ?? ""), await headers());
   if (!result.ok) return { error: result.error };
-  redirect("/app");
+  redirect("/app/settings");
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { regenerateBackupCodes, revokeOwnSession, signOut } from "@/modules/auth/service";
+import { disableTwoFactor, regenerateBackupCodes, revokeOwnSession, signOut } from "@/modules/auth/service";
 import { getCurrentSession, requireOwner } from "@/modules/auth/session";
 
 export async function logoutAction(): Promise<void> {
@@ -38,4 +38,20 @@ export async function regenerateBackupCodesAction(
 
   const result = await regenerateBackupCodes(actor, password, await headers());
   return result.ok ? { backupCodes: result.data.backupCodes } : { error: result.error };
+}
+
+export type DisableTwoFactorState = { error?: string };
+
+export async function disableTwoFactorAction(
+  _prev: DisableTwoFactorState,
+  formData: FormData,
+): Promise<DisableTwoFactorState> {
+  const { actor } = await requireOwner();
+  const password = formData.get("password");
+  if (typeof password !== "string" || password.length === 0) return { error: "Bitte Passwort eingeben." };
+
+  const result = await disableTwoFactor(actor, password, await headers());
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/app/settings");
+  redirect("/app/settings");
 }
