@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Development Portfolio
 
-## Getting Started
+Privates, KI-gestütztes Entwicklungsportfolio: **Dokumentieren · Entwickeln · Präsentieren**.
+Ein modularer Monolith (Next.js + TypeScript + PostgreSQL), entworfen für sicheren Betrieb mit minimalen Kosten.
 
-First, run the development server:
+> **Status: Inkrement 0 – Fundament.** Projektgerüst, Datenmodell mit Migrationen, Design-System,
+> Security-Header/CSP, Tests und CI. Login folgt in Inkrement 1. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
+
+## Schnellstart
+
+Voraussetzungen: Node.js 22+, pnpm 10 (`corepack enable`), Docker (oder ein lokales Postgres 16).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local        # Werte prüfen
+docker compose up -d              # Postgres (+ MinIO für später)
+pnpm db:migrate && pnpm db:seed   # Schema + 6 Report-Typen
+pnpm dev                          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Das Design-System ist in der Entwicklung unter <http://localhost:3000/styleguide> zu sehen
+(in Produktion bewusst nicht erreichbar).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Befehle
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Befehl                           | Zweck                                                        |
+| -------------------------------- | ------------------------------------------------------------ |
+| `pnpm dev`                       | Entwicklungsserver                                           |
+| `pnpm build` / `pnpm start`      | Produktions-Build lokal                                      |
+| `pnpm lint` · `pnpm typecheck`   | ESLint · TypeScript (strict)                                 |
+| `pnpm format` · `format:check`   | Prettier                                                     |
+| `pnpm test`                      | Unit-Tests (schnell, ohne DB)                                |
+| `pnpm test:int`                  | Integrationstests gegen eine frisch migrierte Wegwerf-DB     |
+| `pnpm test:e2e`                  | Playwright gegen den Produktions-Build (Desktop + Mobil)     |
+| `pnpm check`                     | Lint + Typen + Format + Unit + Integration                   |
+| `pnpm db:generate --name <name>` | Migration aus Schemaänderung erzeugen                        |
+| `pnpm db:migrate` · `db:seed`    | Migrationen anwenden · Standarddaten einspielen (idempotent) |
 
-## Learn More
+Lokal mit installiertem Chrome statt Playwright-Browser: `PW_CHANNEL=chrome pnpm test:e2e`.
 
-To learn more about Next.js, take a look at the following resources:
+## Struktur
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+src/
+  app/                Routen (Workspace, später Viewer und API)
+  content/blocks/     Dokumentmodell der Reports (Zod) – kein HTML, nur typisierte Blöcke
+  modules/<modul>/    Fachmodule: schema · service · repo · policy · actions · ui
+  lib/                config (Env-Validierung) · db (Schema, Client, Seed) · security (CSP)
+  ui/                 Design-System (Tokens in app/globals.css)
+  proxy.ts            CSP-Nonce pro Request
+drizzle/              versionierte SQL-Migrationen
+tests/                unit · integration · e2e
+docs/adr/             Architekturentscheidungen
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Sicherheitsprinzipien (Kurzfassung)
 
-## Deploy on Vercel
+- Keine Secrets im Code. Alles über Umgebungsvariablen, validiert beim Start (`src/lib/config/env.ts`).
+- Strikte Content-Security-Policy mit Nonce, keine externen Quellen (Schriften werden selbst gehostet, per `postinstall` aus npm kopiert).
+- Inhalte sind validiertes JSON; Links nur `http(s)`/`mailto`. Gerendert wird nur über eigene Komponenten.
+- Audit-Log ist auf Datenbankebene append-only (Trigger).
+- Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
+- Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Details: [`docs/adr/`](docs/adr/).

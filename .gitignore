@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!.env.example
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Schriften werden per postinstall aus node_modules kopiert (scripts/copy-fonts.mjs)
+/src/app/fonts/*.woff2

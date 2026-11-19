@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret-Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  check:
+    name: Lint, Typen, Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: portfolio
+          POSTGRES_PASSWORD: portfolio
+          POSTGRES_DB: portfolio
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U portfolio"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://portfolio:portfolio@localhost:5432/portfolio
+      TEST_DATABASE_URL: postgres://portfolio:portfolio@localhost:5432/postgres
+      APP_URL: http://localhost:3100
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm format:check
+      - name: Migrationen gegen leere DB anwenden
+        run: pnpm db:migrate && pnpm db:seed
+      - name: Migrationen sind aktuell (Schema ↔ drizzle/)
+        run: |
+          pnpm drizzle-kit check
+          pnpm drizzle-kit generate --name drift-check
+          if [ -n "$(git status --porcelain drizzle)" ]; then
+            echo "::error::Schema geändert, aber keine Migration erzeugt. 'pnpm db:generate' ausführen und committen."
+            git status --porcelain drizzle
+            exit 1
+          fi
+      - run: pnpm test
+      - run: pnpm test:int
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
