@@ -186,7 +186,7 @@ export async function verifySecondFactor(input: unknown, requestHeaders: Headers
 }
 
 // ---------------------------------------------------------------------------
-// 2FA einrichten (Pflicht beim ersten Login)
+// 2FA einrichten (optional, über die Einstellungen)
 // ---------------------------------------------------------------------------
 
 export type Enrollment = {

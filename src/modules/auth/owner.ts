@@ -6,7 +6,7 @@ import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, type Auth } from "./auth";
 
 /**
  * Passwortregeln: Länge schlägt Komplexität (NIST SP 800-63B). Zusätzlich offensichtliche
- * Schwachstellen ablehnen. 2FA ist ohnehin Pflicht.
+ * Schwachstellen ablehnen. Optional schützt zusätzlich ein zweiter Faktor.
  */
 export const passwordSchema = z
   .string()
