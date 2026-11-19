@@ -133,3 +133,36 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Basis-Stile des Rich-Text-Editors (ProseMirror/TipTap). TipTap würde sie sonst als
+ * Inline-<style> injizieren – das blockiert unsere strikte CSP (injectCSS: false).
+ */
+.ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+.ProseMirror [contenteditable="false"] {
+  white-space: normal;
+}
+.ProseMirror [contenteditable="false"] [contenteditable="true"],
+.ProseMirror pre {
+  white-space: pre-wrap;
+}
+img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+.ProseMirror-hideselection * {
+  caret-color: transparent;
+}

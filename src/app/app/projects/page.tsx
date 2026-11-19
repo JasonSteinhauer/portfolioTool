@@ -12,7 +12,7 @@ export default async function Page() {
     <>
       <PageHeader title="Projekte" meta={<Meta>Struktur</Meta>} />
       <ComingSoon
-        increment={2}
+        increment={6}
         what="Projekte bündeln zusammengehörige Reports und bilden die Grundlage für Fallstudien im Portfolio."
       />
     </>

@@ -17,7 +17,7 @@ export default async function WorkspaceLayout({ children }: { children: ReactNod
       createAction={
         <div className="flex items-center gap-2">
           <Link
-            href="/app/reports"
+            href="/app/reports/new"
             className="inline-flex h-8 items-center gap-2 border-2 border-accent bg-accent px-3 text-[13px] font-medium text-white transition-colors duration-[var(--motion-fast)] hover:border-accent-hover hover:bg-accent-hover"
           >
             <span aria-hidden="true">+</span> Erstellen
