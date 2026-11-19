@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DocumentView } from "@/content/blocks/render";
 import type { Block, ContentDocument } from "@/content/blocks/schema";
@@ -9,7 +9,6 @@ import type { Classification } from "@/modules/reports/service";
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { cn } from "@/ui/cn";
-import { saveReportAction } from "../../actions";
 import { AddBlockMenu, BlockEditor, createBlock } from "./block-editor";
 
 export type EditorInitial = {
@@ -31,9 +30,17 @@ type SaveState =
   | { kind: "saved"; at: Date }
   | { kind: "invalid" }
   | { kind: "conflict" }
-  | { kind: "error"; retryInMs: number };
+  | { kind: "error" };
 
-export const AUTOSAVE_DELAY_MS = 1200;
+/** Antwort von POST /api/reports/[id]/save (siehe route.ts). */
+type SaveResponse =
+  | { ok: true; revision: number; status: "draft" | "final"; savedAt: string; reopened: boolean }
+  | { ok: false; reason: "conflict"; currentRevision: number }
+  | { ok: false; reason: "invalid"; fieldErrors: Record<string, string> }
+  | { ok: false; reason: string };
+
+/** Browser begrenzen keepalive-Anfragen auf 64 KB; größere Reports speichern normal. */
+const KEEPALIVE_LIMIT_BYTES = 60_000;
 const control =
   "w-full border-2 border-border-default bg-bg px-3 text-sm text-text-primary placeholder:text-text-secondary/70 hover:border-border-strong focus-visible:border-accent focus-visible:outline-none aria-[invalid=true]:border-danger";
 
@@ -69,12 +76,14 @@ export function ReportEditor({
   const [notice, setNotice] = useState<string>();
   const [preview, setPreview] = useState(false);
 
+  const router = useRouter();
   const revision = useRef(initial.revision);
   const latest = useRef(draft);
   const changeCounter = useRef(0);
   const savedCounter = useRef(0);
   const inFlight = useRef(false);
   const blocked = useRef(false);
+  const lastFailed = useRef(false);
 
   useEffect(() => {
     latest.current = draft;
@@ -86,37 +95,58 @@ export function ReportEditor({
     setSave((s) => (s.kind === "conflict" ? s : { kind: "dirty" }));
   }, []);
 
+  const isDirty = () => changeCounter.current !== savedCounter.current;
+
+  /**
+   * Speichert den aktuellen Stand. Gespeichert wird beim Verlassen (Tab-Wechsel, Schließen,
+   * Navigation), mit Strg+S, „Speichern“, „Version speichern“ und „Fertig“ – nicht bei jedem Tastendruck.
+   * Liefert true, wenn danach nichts Ungespeichertes mehr vorliegt.
+   */
   const persist = useCallback(
-    async (manual: boolean) => {
-      if (inFlight.current || blocked.current) return;
+    async (options: { manual?: boolean; leaving?: boolean } = {}): Promise<boolean> => {
+      if (blocked.current) return false;
+      if (inFlight.current) return false;
+      if (!options.manual && !isDirty()) return true;
+
       inFlight.current = true;
       const counterAtStart = changeCounter.current;
-      setSave({ kind: "saving" });
+      const body = JSON.stringify({ ...latest.current, revision: revision.current, manual: Boolean(options.manual) });
+      if (!options.leaving) setSave({ kind: "saving" });
       try {
-        const result = await saveReportAction(reportId, { ...latest.current, revision: revision.current, manual });
+        const response = await fetch(`/api/reports/${reportId}/save`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "same-origin",
+          body,
+          keepalive: Boolean(options.leaving) && body.length < KEEPALIVE_LIMIT_BYTES,
+        });
+        const result = (await response.json()) as SaveResponse;
         if (result.ok) {
           revision.current = result.revision;
           savedCounter.current = counterAtStart;
+          lastFailed.current = false;
           setErrors({});
           setStatus(result.status);
           if (result.reopened) setNotice("Pflichtfelder fehlen – der Report ist wieder ein Entwurf.");
-          setSave(
-            changeCounter.current === counterAtStart
-              ? { kind: "saved", at: new Date(result.savedAt) }
-              : { kind: "dirty" },
-          );
-        } else if (result.reason === "conflict") {
+          const clean = changeCounter.current === counterAtStart;
+          setSave(clean ? { kind: "saved", at: new Date(result.savedAt) } : { kind: "dirty" });
+          return clean;
+        }
+        lastFailed.current = true;
+        if (result.reason === "conflict") {
           blocked.current = true;
           setSave({ kind: "conflict" });
-        } else if (result.reason === "invalid") {
+        } else if (result.reason === "invalid" && "fieldErrors" in result) {
           setErrors(result.fieldErrors);
-          savedCounter.current = counterAtStart;
           setSave({ kind: "invalid" });
         } else {
-          setSave({ kind: "error", retryInMs: 5000 });
+          setSave({ kind: "error" });
         }
+        return false;
       } catch {
-        setSave({ kind: "error", retryInMs: 5000 });
+        lastFailed.current = true;
+        setSave({ kind: "error" });
+        return false;
       } finally {
         inFlight.current = false;
       }
@@ -124,28 +154,44 @@ export function ReportEditor({
     [reportId],
   );
 
-  // Autosave: kurz nach der letzten Änderung speichern.
+  const persistRef = useRef(persist);
   useEffect(() => {
-    if (save.kind !== "dirty") return;
-    const timer = setTimeout(() => void persist(false), AUTOSAVE_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [save, draft, persist]);
+    persistRef.current = persist;
+  }, [persist]);
 
-  // Bei Fehlern automatisch erneut versuchen.
+  // Speichern beim Verlassen: Tab-Wechsel/Minimieren, Schließen, Navigation innerhalb der App.
   useEffect(() => {
-    if (save.kind !== "error") return;
-    const timer = setTimeout(() => void persist(false), save.retryInMs);
-    return () => clearTimeout(timer);
-  }, [save, persist]);
-
-  // Warnung beim Verlassen mit ungespeicherten Änderungen.
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (changeCounter.current !== savedCounter.current || inFlight.current) event.preventDefault();
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") void persistRef.current({ leaving: true });
     };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    const onPageHide = () => void persistRef.current({ leaving: true });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void persistRef.current();
+      }
+    };
+    // Nur warnen, wenn sich nicht speichern lässt (Konflikt, Fehler, ungültige Eingaben).
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (isDirty() && (lastFailed.current || blocked.current)) event.preventDefault();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", onPageHide);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      // Komponente verschwindet (Navigation innerhalb der App) → letzten Stand mitnehmen.
+      void persistRef.current({ leaving: true });
+    };
   }, []);
+
+  const finish = async () => {
+    if (await persist()) router.push(`/app/reports/${reportId}`);
+  };
 
   const setBlocks = (fn: (blocks: Block[]) => Block[]) =>
     update((d) => ({ ...d, content: { ...d.content, blocks: fn(d.content.blocks) } }));
@@ -172,19 +218,25 @@ export function ReportEditor({
             {preview ? "Vorschau ausblenden" : "Vorschau"}
           </Button>
           <Button
+            variant="ghost"
+            size="sm"
+            title="Strg+S"
+            disabled={save.kind === "saving" || save.kind === "conflict"}
+            onClick={() => void persist()}
+          >
+            Speichern
+          </Button>
+          <Button
             variant="secondary"
             size="sm"
             disabled={save.kind === "saving" || save.kind === "conflict"}
-            onClick={() => void persist(true)}
+            onClick={() => void persist({ manual: true })}
           >
             Version speichern
           </Button>
-          <Link
-            href={`/app/reports/${reportId}`}
-            className="inline-flex h-8 items-center border-2 border-accent bg-accent px-3 text-[13px] font-medium text-white hover:bg-accent-hover"
-          >
+          <Button size="sm" disabled={save.kind === "saving" || save.kind === "conflict"} onClick={() => void finish()}>
             Fertig
-          </Link>
+          </Button>
         </div>
       </div>
 
@@ -340,12 +392,12 @@ export function ReportEditor({
 function SaveIndicator({ state }: { state: SaveState }) {
   const text = {
     idle: "Alle Änderungen gespeichert",
-    dirty: "Ungespeicherte Änderungen …",
+    dirty: "Ungespeichert – wird beim Verlassen gespeichert (Strg+S)",
     saving: "Speichert …",
     saved: state.kind === "saved" ? `Gespeichert ${timeFormat.format(state.at)}` : "",
     invalid: "Nicht gespeichert – bitte Eingaben prüfen",
     conflict: "Speichern pausiert (Konflikt)",
-    error: "Speichern fehlgeschlagen – neuer Versuch läuft",
+    error: "Speichern fehlgeschlagen – bitte erneut versuchen",
   }[state.kind];
   const tone =
     state.kind === "invalid" || state.kind === "conflict" || state.kind === "error"

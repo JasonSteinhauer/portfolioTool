@@ -1,16 +1,22 @@
-# ADR 0005 – Report-Editor, Autosave und Versionen
+# ADR 0005 – Report-Editor, Speichern und Versionen
 
-- Status: angenommen (19.11.2026)
+- Status: angenommen (19.11.2026), Speicherverhalten nach Review des Owners geändert (19.11.2026)
 
 ## Entscheidung
 
 - **Hybrider Editor:** Formularfelder je Report-Typ (aus `report_types.field_schema`) plus eine Blockliste.
   Blöcke: Text (TipTap, nur erlaubte Knoten/Marks), Überschrift, Code, Link, Erkenntnis. Bild/Anhang folgen
   mit der Mediathek (Inkrement 3). Sortieren per Schaltflächen (↑/↓) statt Drag & Drop – tastaturbedienbar.
-- **Autosave** 1,2 s nach der letzten Änderung über eine Server Action. Jede Speicherung trägt die
-  Revision, auf der sie basiert. Weicht sie ab, wird **nicht** überschrieben: Der Editor meldet einen Konflikt
-  und pausiert (zweiter Tab, zweites Gerät). Netzwerkfehler werden automatisch erneut versucht; beim
-  Verlassen mit ungespeicherten Änderungen warnt der Browser.
+- **Speichern beim Verlassen** (Entscheidung des Owners nach Review, statt Autosave bei jeder Änderung):
+  beim Tab-Wechsel/Minimieren (`visibilitychange`), beim Schließen (`pagehide`), beim Wechsel in einen
+  anderen Bereich der App, mit „Fertig“, Strg+S und „Speichern“. Damit das auch beim Schließen ankommt,
+  speichert der Editor per `fetch(…, { keepalive: true })` über `POST /api/reports/[id]/save` (nur
+  Same-Origin, nur JSON, Owner-Session). Browser begrenzen keepalive auf 64 KB – größere Reports werden
+  beim Tab-Wechsel normal gespeichert; beim harten Schließen eines sehr großen Reports kann der letzte
+  Stand fehlen.
+- **Konflikte:** Jede Speicherung trägt die Revision, auf der sie basiert. Weicht sie ab, wird **nicht**
+  überschrieben: Der Editor meldet einen Konflikt und pausiert (zweiter Tab, zweites Gerät). Eine
+  Verlassen-Warnung erscheint nur, wenn sich Änderungen nicht speichern ließen (Konflikt, Fehler, ungültig).
 - **Validierung** immer serverseitig: Blockdokument (Zod, strikt), Formularfelder je Typ im Modus
   „Entwurf“ (Pflichtfelder optional). „Abschließen“ prüft im Modus „final“. Fehlen später Pflichtfelder,
   wird der Report automatisch wieder zum Entwurf.

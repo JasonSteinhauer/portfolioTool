@@ -17,6 +17,7 @@ function walk(dir: string): string[] {
 }
 
 const files = walk(WORKSPACE_DIR);
+const apiRoutes = walk(join(process.cwd(), "src/app/api")).filter((f) => f.endsWith("route.ts"));
 
 describe("Workspace-Routen", () => {
   it("findet Seiten zum Prüfen", () => {
@@ -43,6 +44,16 @@ describe("Workspace-Routen", () => {
           /await (requireOwner|getCurrentSession|requireSession)\(\)/,
         );
       }
+    });
+  }
+});
+
+describe("API-Routen", () => {
+  for (const file of apiRoutes) {
+    it(`${relative(process.cwd(), file)} prüft Session und Herkunft`, () => {
+      const source = readFileSync(file, "utf8");
+      expect(source).toMatch(/await (getOwner|requireOwner)\(\)/);
+      expect(source).toMatch(/sameOrigin\(request\)/);
     });
   }
 });

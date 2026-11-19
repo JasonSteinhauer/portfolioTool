@@ -236,6 +236,7 @@ test("Zwei-Faktor-Schutz lässt sich mit Passwort wieder ausschalten", async ({ 
   await expect(page.getByTestId("two-factor-card")).toContainText("Aus");
 
   await page.locator("header").getByRole("button", { name: "Abmelden" }).click();
+  await expect(page).toHaveURL(/\/login$/);
   await submitPassword(page, owner.email);
   await expect(page).toHaveURL(/\/app$/);
 });

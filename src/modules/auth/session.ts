@@ -46,3 +46,14 @@ export async function requireOwner(): Promise<{ actor: Actor; user: CurrentUser;
     sessionId: session.session.id,
   };
 }
+
+/**
+ * Für Route Handler (API): liefert den Owner oder `null` – ohne Redirect.
+ * Aufrufer antworten dann mit 401.
+ */
+export async function getOwner(): Promise<{ actor: Actor } | null> {
+  const session = await getCurrentSession();
+  const role = (session?.user as { role?: string | null } | undefined)?.role;
+  if (!session || role !== "owner") return null;
+  return { actor: { type: "user", userId: session.user.id, role: "owner" } };
+}

@@ -6,7 +6,8 @@ import { E2E_PASSWORD, E2E_READY_OWNERS, E2E_STATE_FILE, type E2EProject } from 
 /**
  * Report-Workflow End-to-End (Definition of Done, Schritte 1–5):
  * anmelden → Fallanalyse anlegen → strukturierte Angaben → Text + Code → Entwurf speichern →
- * erneut öffnen und bearbeiten. Dazu: Vorschau, Versionen, Abschließen, Suche, Papierkorb, Konflikt.
+ * erneut öffnen und bearbeiten. Dazu: Speichern beim Verlassen (Tab-Wechsel, Navigation, Schließen),
+ * Vorschau, Versionen, Abschließen, Suche, Papierkorb, Konflikt.
  */
 test.describe.configure({ mode: "serial" });
 
@@ -61,7 +62,7 @@ test.afterAll(async () => {
   await context?.close();
 });
 
-test("Fallanalyse anlegen, Angaben und Blöcke erfassen – Autosave speichert", async () => {
+test("Fallanalyse anlegen, Angaben und Blöcke erfassen – speichert erst auf Wunsch (Strg+S)", async () => {
   const errors: string[] = [];
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text());
@@ -119,6 +120,11 @@ test("Fallanalyse anlegen, Angaben und Blöcke erfassen – Autosave speichert",
   await page.getByRole("button", { name: "Block 2: Erkenntnis nach oben" }).click();
   await expect(page.getByTestId("block").first()).toHaveAttribute("data-block-type", "insight");
 
+  // Kein Speichern bei jeder Änderung …
+  await page.waitForTimeout(2000);
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "dirty");
+  // … sondern auf Wunsch per Tastenkürzel.
+  await page.keyboard.press("ControlOrMeta+s");
   await waitSaved(page);
   expect(errors).toEqual([]);
 });
@@ -139,9 +145,57 @@ test("Entwurf erneut öffnen: alles ist gespeichert und weiter bearbeitbar", asy
   const preview = page.getByRole("complementary", { name: "Live-Vorschau" });
   await expect(preview.getByRole("heading", { level: 1 })).toHaveText(TITLE);
   await expect(preview.locator("code")).toContainText("50126");
-  await waitSaved(page);
   await page.getByRole("button", { name: "Version speichern" }).click();
   await waitSaved(page);
+});
+
+test("Tab-Wechsel speichert automatisch", async () => {
+  await page
+    .getByLabel("Ausgangslage")
+    .fill("Synthetischer Alert: 42 fehlgeschlagene Anmeldungen in 3 Minuten (Tab-Wechsel).");
+  await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "dirty");
+  // Tab wird verborgen (Wechsel, Minimieren) → visibilitychange
+  await page.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  });
+  await waitSaved(page);
+});
+
+test("Navigation in einen anderen Bereich speichert", async () => {
+  const navTitle = `${TITLE} (Navigation)`;
+  await page.getByLabel("Titel", { exact: true }).fill(navTitle);
+  await page.locator("header").getByRole("link", { name: "Reports" }).click();
+  await expect(page).toHaveURL(/\/app\/reports$/);
+  await expect
+    .poll(async () => {
+      await page.reload();
+      return page.getByTestId("report-list").getByText(navTitle).count();
+    })
+    .toBe(1);
+
+  await page.goto(`${reportUrl}/edit`);
+  await page.getByLabel("Titel", { exact: true }).fill(TITLE);
+  await page.getByRole("button", { name: "Fertig" }).click();
+  await expect(page).toHaveURL(reportUrl);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(TITLE);
+});
+
+test("Schließen des Tabs speichert", async () => {
+  const closing = await context.newPage();
+  await closing.goto(`${reportUrl}/edit`);
+  await closing
+    .getByLabel("Fragestellung")
+    .fill("Brute Force oder fehlerhaft konfigurierter Dienst? (beim Schließen gespeichert)");
+  await closing.close({ runBeforeUnload: true });
+
+  await expect
+    .poll(async () => {
+      await page.goto(`${reportUrl}/edit`);
+      return page.getByLabel("Fragestellung").inputValue();
+    })
+    .toContain("beim Schließen gespeichert");
 });
 
 test("Ansicht, Abschließen, Versionen und Suche", async () => {
@@ -183,9 +237,11 @@ test("gleichzeitiges Bearbeiten in zwei Tabs führt zu einem Konflikt statt zu D
   await tabB.goto(`${reportUrl}/edit`);
 
   await tabA.getByLabel("Titel", { exact: true }).fill(`${TITLE} – Tab A`);
+  await tabA.getByRole("button", { name: "Speichern", exact: true }).click();
   await waitSaved(tabA);
 
   await tabB.getByLabel("Titel", { exact: true }).fill(`${TITLE} – Tab B`);
+  await tabB.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(tabB.getByTestId("save-status")).toHaveAttribute("data-state", "conflict", { timeout: 15_000 });
   await expect(tabB.getByRole("alert").filter({ hasText: "an anderer Stelle geändert" })).toBeVisible();
 
@@ -198,4 +254,36 @@ test("ungültige Blockdaten werden serverseitig abgelehnt", async () => {
   // Direkter Aufruf der Seite mit manipulierter UUID → 404 statt Fehlerseite
   expect((await page.goto("/app/reports/00000000-0000-4000-8000-000000000000"))?.status()).toBe(404);
   expect((await page.goto("/app/reports/keine-uuid"))?.status()).toBe(404);
+});
+
+test("Speicher-API lehnt fremde Herkunft und fehlende Anmeldung ab", async ({ playwright }, testInfo) => {
+  const reportId = reportUrl.split("/").pop()!;
+  const url = `/api/reports/${reportId}/save`;
+  const body = {
+    title: "Angriff",
+    structuredFields: {},
+    content: { schemaVersion: 1, blocks: [] },
+    classification: "private",
+    aiAllowed: false,
+    revision: 1,
+  };
+  const base = testInfo.project.use.baseURL!;
+
+  // Mit gültiger Sitzung, aber von fremder Seite (CSRF) → 403
+  const csrf = await page.request.post(url, {
+    data: body,
+    headers: { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+  });
+  expect(csrf.status()).toBe(403);
+  // Ohne Origin-Header → 403
+  expect((await page.request.post(url, { data: body })).status()).toBe(403);
+
+  // Richtige Herkunft, aber ohne Anmeldung → 401
+  const anonymous = await playwright.request.newContext({ baseURL: base });
+  expect((await anonymous.post(url, { data: body, headers: { origin: new URL(base).origin } })).status()).toBe(401);
+  await anonymous.dispose();
+
+  // Der Report ist unverändert.
+  await page.goto(reportUrl);
+  await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Angriff");
 });

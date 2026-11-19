@@ -5,15 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
-import {
-  createReport,
-  finalizeReport,
-  moveToTrash,
-  restoreFromTrash,
-  restoreVersion,
-  saveReport,
-  type SaveResult,
-} from "@/modules/reports/service";
+import { createReport, finalizeReport, moveToTrash, restoreFromTrash, restoreVersion } from "@/modules/reports/service";
 
 const id = z.uuid();
 
@@ -22,22 +14,6 @@ export async function createReportAction(formData: FormData): Promise<void> {
   const typeKey = z.string().min(1).max(40).parse(formData.get("typeKey"));
   const report = await createReport(getDb(), actor, { typeKey });
   redirect(`/app/reports/${report.id}/edit`);
-}
-
-/** Autosave und manuelles Speichern. Liefert strukturierte Ergebnisse statt Exceptions. */
-export async function saveReportAction(
-  reportId: string,
-  payload: unknown,
-): Promise<SaveResult | { ok: false; reason: "error" }> {
-  const { actor } = await requireOwner();
-  if (!id.safeParse(reportId).success) return { ok: false, reason: "error" };
-  try {
-    const result = await saveReport(getDb(), actor, reportId, payload);
-    if (result.ok) revalidatePath(`/app/reports/${reportId}`);
-    return result;
-  } catch {
-    return { ok: false, reason: "error" };
-  }
 }
 
 export type FinalizeState = { fieldErrors?: Record<string, string> };
