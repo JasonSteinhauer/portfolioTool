@@ -7,7 +7,8 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
 - [x] **0 Fundament:** Repo, pnpm, Docker Compose, Drizzle-Schema (komplettes Datenmodell) + Migrationen,
       Env-Validierung, CSP/Security-Header, Design-Tokens + Basiskomponenten, Workspace-Navigation,
       Unit-/Integrations-/E2E-Tests, CI (Lint, Typen, Format, Migrationsdrift, Tests, gitleaks)
-- [ ] **1 Auth & Workspace-Shell:** Owner-Seed, Login, TOTP, Sessions, Rate-Limit, Audit, `can()`-Policy
+- [x] **1 Auth & Workspace-Shell:** Owner-Skript, Login, Pflicht-TOTP + Backup-Codes, Sessions (Liste,
+      Widerruf), Rate-Limit, Audit, `can()`-Policy, Routen-Schutztest, Workspace mit Platzhaltern
 - [ ] **2 Reports:** Formulare je Typ, Blockeditor, Autosave mit Konflikterkennung, Vorschau, Versionen
 - [ ] **3 Medien:** Upload-Pipeline mit Quarantäne, Mediathek, Bild/Anhang-Blöcke, Deduplizierung
 - [ ] **4 Portfolio-Seiten:** Komponenten-Registry, Seite aus Report, Vorschau, Freigabe als Snapshot

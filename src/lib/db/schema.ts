@@ -70,7 +70,9 @@ export const riskLevel = pgEnum("risk_level", ["read", "low_metadata", "conseque
 export const actorType = pgEnum("actor_type", ["user", "ai", "system", "viewer"]);
 
 // ---------------------------------------------------------------------------
-// Nutzer (Auth-Tabellen für Sessions etc. folgen in Inkrement 1)
+// Nutzer & Authentifizierung
+// Die JS-Feldnamen entsprechen dem Modell von Better Auth (siehe src/modules/auth/auth.ts);
+// die Spaltennamen bleiben snake_case. Better Auth vergibt eigene String-IDs.
 // ---------------------------------------------------------------------------
 
 export const users = pgTable("users", {
@@ -80,9 +82,82 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
   role: userRole("role").notNull().default("owner"),
+  twoFactorEnabled: boolean("two_factor_enabled").notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** Zufälliges Session-Token (steht signiert im Cookie). */
+    token: text("token").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    providerId: text("provider_id").notNull(),
+    /** Passwort-Hash (scrypt) für den Anbieter `credential`. Nie im Klartext. */
+    password: text("password"),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
+    scope: text("scope"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("accounts_user_idx").on(t.userId)],
+);
+
+export const verifications = pgTable(
+  "verifications",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("verifications_identifier_idx").on(t.identifier)],
+);
+
+export const twoFactors = pgTable(
+  "two_factors",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** TOTP-Secret, von Better Auth mit BETTER_AUTH_SECRET verschlüsselt. */
+    secret: text("secret").notNull(),
+    /** Backup-Codes, verschlüsselt. */
+    backupCodes: text("backup_codes").notNull(),
+    verified: boolean("verified").notNull().default(true),
+    failedVerificationCount: integer("failed_verification_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  },
+  (t) => [index("two_factors_user_idx").on(t.userId), index("two_factors_secret_idx").on(t.secret)],
+);
 
 // ---------------------------------------------------------------------------
 // Struktur: Fachgebiete, Kompetenzen, Projekte
