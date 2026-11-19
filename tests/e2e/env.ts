@@ -27,5 +27,14 @@ export const E2E_READY_OWNERS = {
   mobile: { email: "e2e-ready-mobile@example.test", name: "Ready Mobile", ip: "198.51.100.40" },
 } as const;
 
+/** Owner ohne 2FA (2FA ist optional) für den Portfolio-Workflow; eigene IPs → eigene Rate-Limits. */
+export const E2E_PORTFOLIO_OWNERS = {
+  desktop: { email: "e2e-portfolio-desktop@example.test", name: "Portfolio Desktop", ip: "198.51.100.50" },
+  mobile: { email: "e2e-portfolio-mobile@example.test", name: "Portfolio Mobile", ip: "198.51.100.60" },
+} as const;
+
+/** IPs der „Betrachter“ eines Freigabelinks (fremder Browser ohne Konto). */
+export const E2E_VIEWER_IPS = { desktop: "198.51.100.70", mobile: "198.51.100.80" } as const;
+
 /** Hier legt das Global-Setup die TOTP-Secrets der fertig eingerichteten Owner ab (gitignored). */
 export const E2E_STATE_FILE = "tests/e2e/.state/secrets.json";
