@@ -179,7 +179,8 @@ export const blockSchema = z.discriminatedUnion("type", [
       id: blockId,
       type: z.literal("heading"),
       level: z.union([z.literal(2), z.literal(3)]),
-      text: shortText().min(1),
+      // Leer erlaubt: frisch eingefügte Blöcke sollen Autosave nicht blockieren (Renderer überspringt sie).
+      text: shortText(),
     })
     .strict(),
   z
@@ -212,8 +213,8 @@ export const blockSchema = z.discriminatedUnion("type", [
     .object({
       id: blockId,
       type: z.literal("link"),
-      url: safeWebUrl,
-      title: shortText().min(1),
+      url: z.union([z.literal(""), safeWebUrl]),
+      title: shortText(),
       description: shortText(500).optional(),
     })
     .strict(),
@@ -222,7 +223,7 @@ export const blockSchema = z.discriminatedUnion("type", [
       id: blockId,
       type: z.literal("insight"),
       variant: z.enum(INSIGHT_VARIANTS),
-      title: shortText().min(1),
+      title: shortText(),
       text: shortText(2_000),
     })
     .strict(),

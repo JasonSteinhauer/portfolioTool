@@ -3,9 +3,9 @@
 Privates, KI-gestütztes Entwicklungsportfolio: **Dokumentieren · Entwickeln · Präsentieren**.
 Ein modularer Monolith (Next.js + TypeScript + PostgreSQL), entworfen für sicheren Betrieb mit minimalen Kosten.
 
-> **Status: Inkrement 1 – Anmeldung.** Login mit Passwort und Pflicht-2FA (TOTP + Backup-Codes),
-> Sitzungsverwaltung, Rate-Limiting, Audit-Log und zentrale Autorisierung. Die Fachbereiche folgen ab
-> Inkrement 2. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
+> **Status: Inkrement 2 – Reports.** Anmeldung mit Pflicht-2FA, Sitzungen, Rate-Limits, Audit und
+> Autorisierung (Inkrement 1) plus Reports: sechs Typen mit Formularen, Blockeditor, Autosave mit
+> Konflikterkennung, Live-Vorschau, Versionen, Volltextsuche und Papierkorb. Roadmap: [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Schnellstart
 

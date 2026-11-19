@@ -16,6 +16,11 @@ export const AUDIT_ACTIONS = [
   "auth.logout",
   "auth.session.revoked",
   "auth.owner.created",
+  "report.created",
+  "report.finalized",
+  "report.deleted",
+  "report.restored",
+  "report.version_restored",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
