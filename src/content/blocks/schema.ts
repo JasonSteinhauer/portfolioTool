@@ -179,7 +179,7 @@ export const blockSchema = z.discriminatedUnion("type", [
       id: blockId,
       type: z.literal("heading"),
       level: z.union([z.literal(2), z.literal(3)]),
-      // Leer erlaubt: frisch eingefügte Blöcke sollen Autosave nicht blockieren (Renderer überspringt sie).
+      // Leer erlaubt: frisch eingefügte Blöcke sollen das Speichern nicht blockieren (Renderer überspringt sie).
       text: shortText(),
     })
     .strict(),

@@ -140,7 +140,7 @@ export const saveInputSchema = z.object({
   aiAllowed: z.boolean(),
   /** Revision, auf der die Änderung basiert (optimistische Nebenläufigkeit). */
   revision: z.number().int().positive(),
-  /** Manuelles Speichern erzeugt immer eine Version, Autosave nur alle 10 Minuten. */
+  /** "Version speichern" erzeugt immer eine Version, sonst höchstens alle 10 Minuten ein Checkpoint. */
   manual: z.boolean().default(false),
 });
 export type SaveInput = z.input<typeof saveInputSchema>;
