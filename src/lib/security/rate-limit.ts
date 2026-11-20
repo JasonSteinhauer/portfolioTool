@@ -46,8 +46,10 @@ export async function consumeRateLimit(
   const count = Number(rows[0]?.count ?? 1);
 
   // Gelegentlich alte Fenster aufräumen (billig, kein Cron nötig).
+  // Bezugspunkt ist `now` (nicht die DB-Uhr), damit Aufrufe mit festem Zeitpunkt konsistent bleiben.
   if (Math.random() < 0.02) {
-    await db.execute(sql`delete from rate_limits where window_start < now() - interval '1 day'`);
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60_000).toISOString();
+    await db.execute(sql`delete from rate_limits where window_start < ${cutoff}`);
   }
 
   return {

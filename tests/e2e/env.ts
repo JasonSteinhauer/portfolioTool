@@ -9,6 +9,7 @@ export const E2E_ENV = {
   DATABASE_URL: adminUrl.toString(),
   APP_URL: `http://localhost:${E2E_PORT}`,
   BETTER_AUTH_SECRET: "e2e-test-secret-not-for-production-use-0123456789",
+  MEDIA_STORAGE_DIR: "tests/e2e/.state/media",
 };
 
 export const E2E_PASSWORD = "E2E-Test-Passwort-2026!";
@@ -31,6 +32,22 @@ export const E2E_READY_OWNERS = {
 export const E2E_PORTFOLIO_OWNERS = {
   desktop: { email: "e2e-portfolio-desktop@example.test", name: "Portfolio Desktop", ip: "198.51.100.50" },
   mobile: { email: "e2e-portfolio-mobile@example.test", name: "Portfolio Mobile", ip: "198.51.100.60" },
+} as const;
+
+/** Owner ohne 2FA für den Medien-Workflow (eigene Daten, damit sich die Specs nicht beeinflussen). */
+export const E2E_MEDIA_OWNERS = {
+  desktop: {
+    email: "e2e-media-desktop@example.test",
+    name: "Media Desktop",
+    ip: "198.51.100.90",
+    viewerIp: "198.51.100.110",
+  },
+  mobile: {
+    email: "e2e-media-mobile@example.test",
+    name: "Media Mobile",
+    ip: "198.51.100.100",
+    viewerIp: "198.51.100.120",
+  },
 } as const;
 
 /** IPs der „Betrachter“ eines Freigabelinks (fremder Browser ohne Konto). */

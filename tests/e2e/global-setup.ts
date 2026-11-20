@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -8,7 +8,15 @@ import { seedReportTypes } from "../../src/lib/db/seed";
 import { createAuth } from "../../src/modules/auth/auth";
 import { createOwner } from "../../src/modules/auth/owner";
 import { totp } from "../support/totp";
-import { E2E_ENV, E2E_OWNERS, E2E_PASSWORD, E2E_PORTFOLIO_OWNERS, E2E_READY_OWNERS, E2E_STATE_FILE } from "./env";
+import {
+  E2E_ENV,
+  E2E_MEDIA_OWNERS,
+  E2E_OWNERS,
+  E2E_PASSWORD,
+  E2E_PORTFOLIO_OWNERS,
+  E2E_READY_OWNERS,
+  E2E_STATE_FILE,
+} from "./env";
 
 /** Richtet 2FA über die echte Better-Auth-API ein (Login → Aktivieren → Code bestätigen). */
 async function enrollTwoFactor(auth: ReturnType<typeof createAuth>, email: string) {
@@ -34,6 +42,7 @@ async function enrollTwoFactor(auth: ReturnType<typeof createAuth>, email: strin
  * Test-Owner pro Browser-Projekt (damit Desktop und Mobil parallel laufen können).
  */
 export default async function globalSetup() {
+  rmSync(E2E_ENV.MEDIA_STORAGE_DIR, { recursive: true, force: true });
   const adminUrl = new URL(E2E_ENV.DATABASE_URL);
   const dbName = adminUrl.pathname.slice(1);
   adminUrl.pathname = "/postgres";
@@ -48,7 +57,11 @@ export default async function globalSetup() {
   await migrate(db, { migrationsFolder: "./drizzle" });
   await seedReportTypes(db);
   const auth = createAuth(db, { ...E2E_ENV, NODE_ENV: "production" });
-  for (const owner of [...Object.values(E2E_OWNERS), ...Object.values(E2E_PORTFOLIO_OWNERS)]) {
+  for (const owner of [
+    ...Object.values(E2E_OWNERS),
+    ...Object.values(E2E_PORTFOLIO_OWNERS),
+    ...Object.values(E2E_MEDIA_OWNERS),
+  ]) {
     await createOwner(auth, db, { email: owner.email, name: owner.name, password: E2E_PASSWORD });
   }
   const state: Record<string, { secret: string; usedWindow: number }> = {};

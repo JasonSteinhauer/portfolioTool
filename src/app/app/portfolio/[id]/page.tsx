@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
+import { listMedia, toSummary } from "@/modules/media/service";
 import { getPage, listFavoriteIds, PageNotFoundError } from "@/modules/portfolio/service";
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
+import { MediaLibraryProvider } from "@/ui/media/media-picker";
 import { PageHeader } from "@/ui/workspace-shell";
 import { toggleFavoriteAction, unpublishPageAction } from "../actions";
 import { PageEditor } from "./page-editor";
@@ -20,7 +22,11 @@ export default async function PortfolioPageEditor({ params }: { params: Promise<
     if (error instanceof PageNotFoundError) notFound();
     throw error;
   });
-  const favorite = (await listFavoriteIds(db, actor, "page")).has(page.id);
+  const [favorites, media] = await Promise.all([
+    listFavoriteIds(db, actor, "page"),
+    listMedia(db, actor, { kind: "image" }),
+  ]);
+  const favorite = favorites.has(page.id);
 
   return (
     <>
@@ -62,12 +68,14 @@ export default async function PortfolioPageEditor({ params }: { params: Promise<
           </>
         }
       />
-      <PageEditor
-        pageId={page.id}
-        initialMeta={{ title: page.title, slug: page.slug, locale: page.locale }}
-        initialConfig={page.config}
-        publishedVersion={page.current?.versionNo ?? null}
-      />
+      <MediaLibraryProvider initial={media.map(toSummary)}>
+        <PageEditor
+          pageId={page.id}
+          initialMeta={{ title: page.title, slug: page.slug, locale: page.locale }}
+          initialConfig={page.config}
+          publishedVersion={page.current?.versionNo ?? null}
+        />
+      </MediaLibraryProvider>
     </>
   );
 }

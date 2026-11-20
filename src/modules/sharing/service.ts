@@ -229,3 +229,28 @@ export async function getViewerPage(db: Db, link: ResolvedLink, slug: string): P
   const home = await getViewerHome(db, link);
   return home.pages.find((p) => p.slug === slug) ?? null;
 }
+
+/**
+ * Eine eingefrorene Bilddatei für den Viewer – nur, wenn sie zum AKTUELLEN Snapshot einer Seite gehört,
+ * die der Link umfasst. Alles andere (fremd, alt, widerrufen, außerhalb des Umfangs) → null.
+ */
+export async function getViewerMedia(
+  db: Db,
+  link: ResolvedLink,
+  mediaId: string,
+): Promise<{ storageKey: string; mimeType: string } | null> {
+  if (!z.uuid().safeParse(mediaId).success) return null;
+  const [row] = await db
+    .select({
+      storageKey: schema.publishedMedia.storageKey,
+      mimeType: schema.publishedMedia.mimeType,
+      pageId: schema.publishedSnapshots.portfolioPageId,
+    })
+    .from(schema.publishedMedia)
+    .innerJoin(schema.publishedSnapshots, eq(schema.publishedSnapshots.id, schema.publishedMedia.snapshotId))
+    .where(and(eq(schema.publishedMedia.id, mediaId), eq(schema.publishedSnapshots.isCurrent, true)));
+  if (!row) return null;
+  const { pages } = await getViewerHome(db, link);
+  if (!pages.some((p) => p.pageId === row.pageId)) return null;
+  return { storageKey: row.storageKey, mimeType: row.mimeType };
+}

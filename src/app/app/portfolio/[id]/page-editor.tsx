@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { CODE_LANGUAGES, INSIGHT_VARIANTS } from "@/content/blocks/schema";
 import { PageView } from "@/content/page-components/render";
 import {
@@ -13,6 +13,8 @@ import {
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { cn } from "@/ui/cn";
+import { MediaPickerDialog } from "@/ui/media/media-picker";
+import { mediaUrl } from "@/ui/media/upload";
 import { publishPageAction, savePageAction, type PublishState } from "../actions";
 
 const control =
@@ -23,6 +25,7 @@ const TYPE_LABELS: Record<PageComponentType, string> = {
   projectOverview: "Überblick",
   resultHighlights: "Ergebnisse",
   codeShowcase: "Code",
+  gallery: "Bilder",
   insights: "Erkenntnisse",
 };
 
@@ -370,6 +373,9 @@ function ComponentEditor({
             {input("Bildunterschrift", component.caption, (v) => onChange({ ...component, caption: v }))}
           </>
         ) : null}
+        {component.type === "gallery" ? (
+          <GalleryEditor component={component} label={label} input={input} onChange={onChange} />
+        ) : null}
         {component.type === "insights" ? (
           <>
             {input("Überschrift", component.heading, (v) => onChange({ ...component, heading: v }))}
@@ -435,6 +441,74 @@ function ComponentEditor({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function GalleryEditor({
+  component,
+  label,
+  input,
+  onChange,
+}: {
+  component: Extract<PageComponent, { type: "gallery" }>;
+  label: string;
+  input: (name: string, value: string, set: (v: string) => void, opts?: { area?: boolean }) => ReactNode;
+  onChange: (c: PageComponent) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const setItem = (i: number, patch: Partial<(typeof component.items)[number]>) =>
+    onChange({ ...component, items: component.items.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+  return (
+    <>
+      {input("Überschrift", component.heading, (v) => onChange({ ...component, heading: v }))}
+      {component.items.map((item, i) => (
+        <div key={`${item.mediaId}-${i}`} className="flex gap-3 border-l-2 border-accent pl-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- private Datei */}
+          <img
+            src={mediaUrl(item.mediaId)}
+            alt=""
+            className="h-20 w-28 shrink-0 border border-border-default object-contain"
+          />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {input(`Bild ${i + 1} Beschreibung`, item.alt, (v) => setItem(i, { alt: v }))}
+            {input(`Bild ${i + 1} Bildunterschrift`, item.caption, (v) => setItem(i, { caption: v }))}
+            {item.alt.trim() === "" ? (
+              <p className="text-xs text-danger">Bildbeschreibung fehlt – nötig für die Freigabe.</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            aria-label={`${label} – Bild ${i + 1} entfernen`}
+            onClick={() => onChange({ ...component, items: component.items.filter((_, j) => j !== i) })}
+            className="self-start px-2 text-text-secondary hover:text-text-primary"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      {component.items.length < 12 ? (
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="self-start text-sm text-text-secondary underline decoration-accent underline-offset-4 hover:text-text-primary"
+        >
+          + Bild
+        </button>
+      ) : null}
+      <MediaPickerDialog
+        open={picking}
+        kind="image"
+        title="Bild hinzufügen"
+        onClose={() => setPicking(false)}
+        onPick={(asset) => {
+          onChange({
+            ...component,
+            items: [...component.items, { mediaId: asset.id, alt: asset.altText ?? "", caption: "" }],
+          });
+          setPicking(false);
+        }}
+      />
+    </>
   );
 }
 

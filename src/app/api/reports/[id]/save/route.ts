@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { serverEnv } from "@/lib/config/server-env";
 import { getDb } from "@/lib/db/client";
+import { sameOrigin } from "@/lib/security/same-origin";
 import { getOwner } from "@/modules/auth/session";
 import { ReportNotFoundError, saveReport } from "@/modules/reports/service";
 
@@ -13,14 +13,6 @@ import { ReportNotFoundError, saveReport } from "@/modules/reports/service";
  * Schutz: nur Same-Origin (CSRF), nur JSON, Größenlimit, Owner-Session, Validierung im Service.
  */
 const MAX_BODY_BYTES = 1_200_000;
-
-function sameOrigin(request: Request): boolean {
-  const expected = new URL(serverEnv().APP_URL).origin;
-  const origin = request.headers.get("origin");
-  const fetchSite = request.headers.get("sec-fetch-site");
-  if (fetchSite && fetchSite !== "same-origin") return false;
-  return origin === expected;
-}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   if (!sameOrigin(request)) return NextResponse.json({ ok: false, reason: "forbidden" }, { status: 403 });

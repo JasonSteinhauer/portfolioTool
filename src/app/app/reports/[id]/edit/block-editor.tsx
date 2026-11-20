@@ -3,18 +3,25 @@
 import { useRef, useState } from "react";
 import { CODE_LANGUAGES, INSIGHT_VARIANTS, type Block, type BlockType } from "@/content/blocks/schema";
 import { newBlockId } from "@/content/blocks/utils";
+import type { MediaSummary } from "@/modules/media/service";
 import { cn } from "@/ui/cn";
+import { MediaPickerDialog, useMediaAsset } from "@/ui/media/media-picker";
+import { mediaUrl } from "@/ui/media/upload";
 import { RichTextEditor } from "./rich-text-editor";
 
 const control =
   "w-full border-2 border-border-default bg-bg px-3 text-sm text-text-primary placeholder:text-text-secondary/70 hover:border-border-strong focus-visible:border-accent focus-visible:outline-none";
 
-export const BLOCK_LABELS: Record<Exclude<BlockType, "image" | "attachment">, string> = {
+type SimpleBlockType = Exclude<BlockType, "image" | "attachment">;
+
+export const BLOCK_LABELS: Record<BlockType, string> = {
   richText: "Text",
   heading: "Überschrift",
+  image: "Bild",
   code: "Code",
   link: "Link",
   insight: "Erkenntnis",
+  attachment: "Anhang",
 };
 
 const INSIGHT_LABELS = {
@@ -24,7 +31,7 @@ const INSIGHT_LABELS = {
   warning: "Warnung",
 } as const;
 
-export function createBlock(type: keyof typeof BLOCK_LABELS): Block {
+export function createBlock(type: SimpleBlockType): Block {
   const id = newBlockId();
   switch (type) {
     case "richText":
@@ -40,26 +47,37 @@ export function createBlock(type: keyof typeof BLOCK_LABELS): Block {
   }
 }
 
-export function AddBlockMenu({
-  onAdd,
-  label = "Block hinzufügen",
-}: {
-  onAdd: (type: keyof typeof BLOCK_LABELS) => void;
-  label?: string;
-}) {
+export function mediaBlock(type: "image" | "attachment", asset: MediaSummary): Block {
+  return type === "image"
+    ? { id: newBlockId(), type, mediaId: asset.id, alt: asset.altText ?? "" }
+    : { id: newBlockId(), type, mediaId: asset.id, label: asset.title ?? asset.originalFilename ?? undefined };
+}
+
+export function AddBlockMenu({ onAdd, label = "Block hinzufügen" }: { onAdd: (block: Block) => void; label?: string }) {
+  const [picker, setPicker] = useState<"image" | "attachment" | null>(null);
   return (
     <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2">
       <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-secondary">+ Block</span>
-      {(Object.keys(BLOCK_LABELS) as (keyof typeof BLOCK_LABELS)[]).map((type) => (
+      {(Object.keys(BLOCK_LABELS) as BlockType[]).map((type) => (
         <button
           key={type}
           type="button"
-          onClick={() => onAdd(type)}
+          onClick={() => (type === "image" || type === "attachment" ? setPicker(type) : onAdd(createBlock(type)))}
           className="h-8 border-2 border-border-default px-3 text-[13px] hover:border-border-strong hover:bg-hover-surface"
         >
           {BLOCK_LABELS[type]}
         </button>
       ))}
+      <MediaPickerDialog
+        open={picker !== null}
+        kind={picker === "image" ? "image" : "any"}
+        title={picker === "image" ? "Bild einfügen" : "Anhang einfügen"}
+        onClose={() => setPicker(null)}
+        onPick={(asset) => {
+          if (picker) onAdd(mediaBlock(picker, asset));
+          setPicker(null);
+        }}
+      />
     </div>
   );
 }
@@ -72,7 +90,7 @@ type BlockEditorProps = {
   onChange: (block: Block) => void;
   onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
-  onInsertAfter: (type: keyof typeof BLOCK_LABELS) => void;
+  onInsertAfter: (block: Block) => void;
 };
 
 export function BlockEditor({
@@ -88,7 +106,7 @@ export function BlockEditor({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [showInsert, setShowInsert] = useState(false);
   const tabReleased = useRef(false);
-  const name = block.type in BLOCK_LABELS ? BLOCK_LABELS[block.type as keyof typeof BLOCK_LABELS] : "Medium";
+  const name = BLOCK_LABELS[block.type];
   const label = `Block ${index + 1}: ${name}`;
 
   return (
@@ -286,9 +304,7 @@ export function BlockEditor({
         ) : null}
 
         {block.type === "image" || block.type === "attachment" ? (
-          <p className="font-mono text-xs text-text-secondary">
-            Medienblöcke werden mit der Mediathek (Inkrement 3) bearbeitbar.
-          </p>
+          <MediaBlockFields block={block} label={label} onChange={onChange} />
         ) : null}
 
         {error ? (
@@ -302,8 +318,8 @@ export function BlockEditor({
         <div className="border-t border-line-subtle px-3 py-2">
           <AddBlockMenu
             label={`Nach ${label} einfügen`}
-            onAdd={(type) => {
-              onInsertAfter(type);
+            onAdd={(next) => {
+              onInsertAfter(next);
               setShowInsert(false);
             }}
           />
@@ -335,5 +351,87 @@ function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+function MediaBlockFields({
+  block,
+  label,
+  onChange,
+}: {
+  block: Extract<Block, { type: "image" | "attachment" }>;
+  label: string;
+  onChange: (block: Block) => void;
+}) {
+  const asset = useMediaAsset(block.mediaId);
+  const [picking, setPicking] = useState(false);
+  const isImage = block.type === "image";
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex h-32 w-full shrink-0 items-center justify-center overflow-hidden border-2 border-border-default bg-bg sm:w-44">
+        {isImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- private Datei
+          <img src={mediaUrl(block.mediaId)} alt="" className="h-full w-full object-contain" />
+        ) : (
+          <span className="px-2 text-center font-mono text-xs text-text-secondary">
+            {asset?.originalFilename ?? "Datei"}
+          </span>
+        )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {block.type === "image" ? (
+          <>
+            <input
+              aria-label={`${label} – Bildbeschreibung`}
+              value={block.alt}
+              maxLength={300}
+              placeholder="Bildbeschreibung (Alt-Text) – was ist zu sehen?"
+              onChange={(e) => onChange({ ...block, alt: e.target.value })}
+              className={cn(control, "h-10")}
+            />
+            <input
+              aria-label={`${label} – Bildunterschrift`}
+              value={block.caption ?? ""}
+              maxLength={500}
+              placeholder="Bildunterschrift (optional)"
+              onChange={(e) => onChange({ ...block, caption: e.target.value || undefined })}
+              className={cn(control, "h-10")}
+            />
+            {block.alt.trim() === "" ? (
+              <p className="text-xs text-text-secondary">
+                Ohne Beschreibung kann das Bild nicht im Portfolio freigegeben werden.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <input
+            aria-label={`${label} – Bezeichnung`}
+            value={block.label ?? ""}
+            maxLength={200}
+            placeholder="Bezeichnung (optional)"
+            onChange={(e) => onChange({ ...block, label: e.target.value || undefined })}
+            className={cn(control, "h-10")}
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          className="h-8 self-start border-2 border-border-default px-3 text-[13px] hover:border-border-strong hover:bg-hover-surface"
+        >
+          {isImage ? "Bild ersetzen" : "Datei ersetzen"}
+        </button>
+      </div>
+      <MediaPickerDialog
+        open={picking}
+        kind={isImage ? "image" : "any"}
+        title={isImage ? "Bild ersetzen" : "Datei ersetzen"}
+        onClose={() => setPicking(false)}
+        onPick={(picked) => {
+          onChange({ ...block, mediaId: picked.id });
+          setPicking(false);
+        }}
+      />
+    </div>
   );
 }

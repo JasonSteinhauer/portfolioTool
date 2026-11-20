@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { z } from "zod";
@@ -225,11 +226,22 @@ export async function savePage(db: Db, actor: Actor, pageId: string, input: unkn
   return { ok: true };
 }
 
+type FrozenMedia = {
+  id: string;
+  sourceMediaAssetId: string;
+  storageKey: string;
+  mimeType: string;
+  width: number | null;
+  height: number | null;
+  altText: string;
+};
+
 async function createSnapshot(
   db: Db,
   pageId: string,
   config: CaseStudySnapshot | ProfileSnapshot,
   sourceReportId: string | null,
+  media: FrozenMedia[] = [],
 ) {
   return db.transaction(async (tx) => {
     const [{ max }] = await tx
@@ -256,8 +268,77 @@ async function createSnapshot(
       .insert(schema.publishedSnapshots)
       .values({ portfolioPageId: pageId, versionNo: max + 1, config, sourceReportVersionId, isCurrent: true })
       .returning({ id: schema.publishedSnapshots.id, versionNo: schema.publishedSnapshots.versionNo });
+    if (media.length > 0) {
+      await tx.insert(schema.publishedMedia).values(media.map((m) => ({ ...m, snapshotId: snapshot.id })));
+    }
     return snapshot;
   });
+}
+
+/**
+ * Friert die Bilder einer Seite ein: jedes Bild bekommt eine eigene `published_media`-Zeile mit
+ * neuer ID. Der Snapshot verweist nur noch auf diese IDs – Mediathek-IDs verlassen den Workspace nie,
+ * und späteres Löschen/Ersetzen in der Mediathek ändert die freigegebene Seite nicht.
+ */
+async function freezeMedia(
+  db: Db,
+  actor: Actor,
+  config: PageConfig,
+): Promise<{ config: PageConfig; media: FrozenMedia[] }> {
+  const items = config.components.flatMap((c) => (c.type === "gallery" ? c.items : []));
+  if (items.length === 0) return { config, media: [] };
+  if (items.some((item) => item.alt.trim() === "")) {
+    throw new PublishBlockedError(
+      "Jedes Bild braucht eine Bildbeschreibung (Alt-Text), bevor die Seite freigegeben wird.",
+    );
+  }
+  const ids = [...new Set(items.map((item) => item.mediaId))];
+  const assets = await db
+    .select({
+      id: schema.mediaAssets.id,
+      storageKey: schema.mediaAssets.storageKey,
+      mimeType: schema.mediaAssets.mimeType,
+      width: schema.mediaAssets.width,
+      height: schema.mediaAssets.height,
+      altText: schema.mediaAssets.altText,
+    })
+    .from(schema.mediaAssets)
+    .where(
+      and(
+        inArray(schema.mediaAssets.id, ids),
+        eq(schema.mediaAssets.ownerId, actor.userId),
+        eq(schema.mediaAssets.kind, "image"),
+        isNull(schema.mediaAssets.deletedAt),
+      ),
+    );
+  if (assets.length !== ids.length) {
+    throw new PublishBlockedError("Ein Bild der Seite ist nicht mehr in der Mediathek. Bitte entfernen oder ersetzen.");
+  }
+  const frozen = new Map(
+    assets.map((a) => [
+      a.id,
+      {
+        id: randomUUID(),
+        sourceMediaAssetId: a.id,
+        storageKey: a.storageKey!,
+        mimeType: a.mimeType!,
+        width: a.width,
+        height: a.height,
+        altText: a.altText ?? "",
+      },
+    ]),
+  );
+  return {
+    config: {
+      ...config,
+      components: config.components.map((c) =>
+        c.type === "gallery"
+          ? { ...c, items: c.items.map((item) => ({ ...item, mediaId: frozen.get(item.mediaId)!.id })) }
+          : c,
+      ),
+    },
+    media: [...frozen.values()],
+  };
 }
 
 /**
@@ -283,11 +364,13 @@ export async function publishPage(db: Db, actor: Actor, pageId: string) {
     throw new PublishBlockedError("Die Seite braucht einen Hero-Abschnitt mit Titel.");
   }
 
+  const { config, media } = await freezeMedia(db, actor, stripSources(page.config));
   const snapshot = await createSnapshot(
     db,
     pageId,
-    { kind: "case_study", title: page.title, slug: page.slug, locale: page.locale, page: stripSources(page.config) },
+    { kind: "case_study", title: page.title, slug: page.slug, locale: page.locale, page: config },
     page.sourceReportId,
+    media,
   );
   await recordAudit(db, {
     actorType: "user",

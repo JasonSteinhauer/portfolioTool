@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageView } from "@/content/page-components/render";
+import { PageView, viewerMediaUrl } from "@/content/page-components/render";
 import { getDb } from "@/lib/db/client";
 import { getViewerPage } from "@/modules/sharing/service";
 import { getViewerLink } from "@/modules/sharing/viewer";
@@ -24,7 +24,7 @@ export default async function ViewerCaseStudy({ params }: { params: Promise<{ sl
       >
         ← Übersicht
       </Link>
-      <PageView config={page.snapshot.page} />
+      <PageView config={page.snapshot.page} mediaUrl={viewerMediaUrl} />
     </article>
   );
 }

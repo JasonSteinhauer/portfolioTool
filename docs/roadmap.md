@@ -11,7 +11,8 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
       Widerruf), Rate-Limit, Audit, `can()`-Policy, Routen-Schutztest, Workspace mit Platzhaltern
 - [x] **2 Reports:** Formulare je Typ, Blockeditor (Text/Überschrift/Code/Link/Erkenntnis), Speichern beim
       Verlassen mit Konflikterkennung, Live-Vorschau, Versionen mit Wiederherstellung, Abschließen, Volltextsuche, Papierkorb
-- [ ] **3 Medien:** Upload-Pipeline mit Quarantäne, Mediathek, Bild/Anhang-Blöcke, Deduplizierung
+- [x] **3 Medien:** Upload-Pipeline (Magic Bytes, Neukodierung ohne Metadaten, PDF-/Textprüfung), Mediathek,
+      Bild/Anhang-Blöcke, Bilder in Portfolio-Seiten (eingefroren bei Freigabe), Deduplizierung, Papierkorb
 - [x] **4 Portfolio-Seiten:** Komponenten-Registry, Seite aus Report, Vorschau, Freigabe als Snapshot
 - [x] **5 Teilen:** Share-Links (Token nur als Hash), Viewer, Widerruf, Ablauf, Isolationstests
 - [x] **6 Kuratierung:** Favoriten, Showcase, Profil, One-Pager, Timeline – Collections folgen später

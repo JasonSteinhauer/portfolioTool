@@ -49,3 +49,6 @@ next-env.d.ts
 # Schriften werden per postinstall aus node_modules kopiert (scripts/copy-fonts.mjs)
 /src/app/fonts/*.woff2
 /tests/e2e/.state/
+
+# lokale Mediendateien
+/.data/

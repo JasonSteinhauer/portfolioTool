@@ -9,7 +9,7 @@ import type { Classification } from "@/modules/reports/service";
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { cn } from "@/ui/cn";
-import { AddBlockMenu, BlockEditor, createBlock } from "./block-editor";
+import { AddBlockMenu, BlockEditor } from "./block-editor";
 
 export type EditorInitial = {
   title: string;
@@ -340,7 +340,7 @@ export function ReportEditor({
             </h2>
             {draft.content.blocks.length === 0 ? (
               <p className="text-sm text-text-secondary">
-                Noch keine Blöcke. Füge Text, Code, Links oder Erkenntnisse hinzu.
+                Noch keine Blöcke. Füge Text, Bilder, Code, Links oder Erkenntnisse hinzu.
               </p>
             ) : null}
             {draft.content.blocks.map((block, index) => (
@@ -361,16 +361,16 @@ export function ReportEditor({
                     return next;
                   })
                 }
-                onInsertAfter={(type) =>
+                onInsertAfter={(inserted) =>
                   setBlocks((blocks) => {
                     const next = [...blocks];
-                    next.splice(index + 1, 0, createBlock(type));
+                    next.splice(index + 1, 0, inserted);
                     return next;
                   })
                 }
               />
             ))}
-            <AddBlockMenu onAdd={(type) => setBlocks((blocks) => [...blocks, createBlock(type)])} />
+            <AddBlockMenu onAdd={(added) => setBlocks((blocks) => [...blocks, added])} />
           </section>
         </div>
 
