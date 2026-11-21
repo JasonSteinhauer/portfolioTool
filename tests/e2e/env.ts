@@ -59,6 +59,38 @@ export const E2E_AI_OWNERS = {
   mobile: { email: "e2e-ai-mobile@example.test", name: "KI Mobile", ip: "198.51.100.140" },
 } as const;
 
+/** Owner für Barrierefreiheits- und Layoutprüfungen. */
+export const E2E_A11Y_OWNERS = {
+  desktop: {
+    email: "e2e-a11y-desktop@example.test",
+    name: "A11y Desktop",
+    ip: "198.51.100.150",
+    viewerIp: "198.51.100.170",
+  },
+  mobile: {
+    email: "e2e-a11y-mobile@example.test",
+    name: "A11y Mobile",
+    ip: "198.51.100.160",
+    viewerIp: "198.51.100.180",
+  },
+} as const;
+
+/** Owner MIT 2FA für den Abnahmetest (Definition of Done). */
+export const E2E_DOD_OWNERS = {
+  desktop: {
+    email: "e2e-dod-desktop@example.test",
+    name: "Abnahme Desktop",
+    ip: "198.51.100.190",
+    viewerIp: "198.51.100.210",
+  },
+  mobile: {
+    email: "e2e-dod-mobile@example.test",
+    name: "Abnahme Mobile",
+    ip: "198.51.100.200",
+    viewerIp: "198.51.100.220",
+  },
+} as const;
+
 /** IPs der „Betrachter“ eines Freigabelinks (fremder Browser ohne Konto). */
 export const E2E_VIEWER_IPS = { desktop: "198.51.100.70", mobile: "198.51.100.80" } as const;
 

@@ -1,12 +1,13 @@
 import "server-only";
-import { LocalStorage, type StoragePort } from "./local";
+import { createStorageFromEnv } from "./factory";
+import type { StoragePort } from "./local";
 
 export { storageKeyFor, type StoragePort } from "./local";
 
 let instance: StoragePort | undefined;
 
-/** Speicher der laufenden App (`MEDIA_STORAGE_DIR`, Standard `.data/media`). */
+/** Speicher der laufenden App (lokal oder R2, siehe `factory.ts`). */
 export function getStorage(): StoragePort {
-  instance ??= new LocalStorage(process.env.MEDIA_STORAGE_DIR || ".data/media");
+  instance ??= createStorageFromEnv(process.env);
   return instance;
 }

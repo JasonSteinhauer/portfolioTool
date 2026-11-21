@@ -105,7 +105,7 @@ export function PageComponentView({
           <ul className="grid gap-4 md:grid-cols-2">
             {component.items.map((item, i) => (
               <li key={i} className="border-2 border-border-default bg-surface p-6 shadow-card">
-                <span className="font-mono text-xs text-accent">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-xs text-accent-text">{String(i + 1).padStart(2, "0")}</span>
                 <p className="mt-2 font-semibold">{item.title}</p>
                 {item.text ? <p className="mt-2 whitespace-pre-line text-sm text-text-secondary">{item.text}</p> : null}
               </li>

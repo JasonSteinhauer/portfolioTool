@@ -57,7 +57,9 @@ export function MediaUploader({ accept }: { accept: string }) {
           dragging ? "border-accent bg-hover-surface" : "border-border-strong hover:border-text-primary"
         }`}
       >
-        <span className="font-medium">{busy ? "Lade hoch …" : "Dateien hierher ziehen oder auswählen"}</span>
+        <span className="font-medium">
+          {busy ? "Lade hoch …" : "Dateien hochladen – hierher ziehen oder auswählen"}
+        </span>
         <span className="text-xs text-text-secondary">
           PNG, JPEG, WebP, PDF, Text (txt, log, csv, json, md, kql, yaml) · max. 10 MB · Bilder werden ohne Metadaten
           (EXIF/GPS) gespeichert
@@ -69,32 +71,29 @@ export function MediaUploader({ accept }: { accept: string }) {
           multiple
           accept={accept}
           disabled={busy}
-          aria-label="Dateien hochladen"
           className="sr-only"
           onChange={(e) => e.target.files && void handle(e.target.files)}
         />
       </label>
-      {items.length > 0 ? (
-        <ul
-          role="status"
-          aria-live="polite"
-          className="flex flex-col gap-1 font-mono text-xs"
-          data-testid="upload-status"
-        >
-          {items.map((item, i) => (
-            <li key={`${item.name}-${i}`} className={item.state === "error" ? "text-danger" : "text-text-secondary"}>
-              {item.name}:{" "}
-              {item.state === "pending"
-                ? "wird hochgeladen …"
-                : item.state === "done"
-                  ? "hochgeladen"
-                  : item.state === "duplicate"
-                    ? "bereits vorhanden"
-                    : `abgelehnt – ${item.message}`}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {/* Live-Region existiert immer, damit Screenreader Änderungen ansagen. */}
+      <div role="status" aria-live="polite" data-testid="upload-status">
+        {items.length > 0 ? (
+          <ul className="flex flex-col gap-1 font-mono text-xs">
+            {items.map((item, i) => (
+              <li key={`${item.name}-${i}`} className={item.state === "error" ? "text-danger" : "text-text-secondary"}>
+                {item.name}:{" "}
+                {item.state === "pending"
+                  ? "wird hochgeladen …"
+                  : item.state === "done"
+                    ? "hochgeladen"
+                    : item.state === "duplicate"
+                      ? "bereits vorhanden"
+                      : `abgelehnt – ${item.message}`}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }

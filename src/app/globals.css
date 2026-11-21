@@ -14,8 +14,10 @@
   --surface: #2b2c31;
   --surface-elevated: #36373d;
   --accent: #e20074;
-  --accent-hover: #f0158a;
-  --accent-pressed: #c00062;
+  --accent-hover: #cc006a; /* dunkler statt heller: weißer Text bleibt ≥ 4,5:1 */
+  --accent-pressed: #b0005a;
+  /* Akzent als TEXTFARBE auf dunklen Flächen (bg/surface): ≥ 4,9:1. #e20074 erreicht dort nur ~3:1. */
+  --accent-text: #ff5cae;
   --text-primary: #f5f5f6;
   --text-secondary: #b9bbc2;
   --danger: #ff6b6b;
@@ -49,6 +51,7 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-accent-pressed: var(--accent-pressed);
+  --color-accent-text: var(--accent-text);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-danger: var(--danger);

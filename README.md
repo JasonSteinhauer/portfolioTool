@@ -76,3 +76,9 @@ docs/adr/             Architekturentscheidungen
 - Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 
 Details: [`docs/adr/`](docs/adr/).
+
+## Betrieb
+
+- Deployment-Anleitung: [`docs/deployment.md`](docs/deployment.md)
+- Abnahme (Definition of Done → Tests): [`docs/abnahme.md`](docs/abnahme.md)
+- Backup: `BACKUP_PASSPHRASE=… pnpm backup` · Wiederherstellung: `pnpm restore --file … --confirm`

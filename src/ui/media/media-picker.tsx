@@ -139,7 +139,6 @@ export function MediaPickerDialog({
                 <button
                   type="button"
                   onClick={() => onPick(asset)}
-                  aria-label={`Auswählen: ${asset.title ?? asset.originalFilename}`}
                   className="flex w-full flex-col border-2 border-border-default text-left hover:border-accent focus-visible:border-accent focus-visible:outline-none"
                 >
                   <span className="flex aspect-[4/3] items-center justify-center overflow-hidden bg-surface">
@@ -152,7 +151,10 @@ export function MediaPickerDialog({
                       </span>
                     )}
                   </span>
-                  <span className="truncate px-2 pt-1 text-sm">{asset.title}</span>
+                  <span className="truncate px-2 pt-1 text-sm">
+                    <span className="sr-only">Auswählen: </span>
+                    {asset.title ?? asset.originalFilename}
+                  </span>
                   <span className="px-2 pb-1 font-mono text-[11px] text-text-secondary">
                     {formatBytes(asset.sizeBytes)}
                   </span>

@@ -18,7 +18,8 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
 - [x] **6 Kuratierung:** Favoriten, Showcase, Profil, One-Pager, Timeline – Collections folgen später
 - [x] **7 KI-Basis:** Provider-Port (Anthropic + Test-Provider), Gateway mit Budget/Limits/Schwärzung,
       Sprachvorschläge mit Diff, Seitenentwurf nur mit belegten Aussagen, Nutzungsübersicht
-- [ ] **8 Härtung & Abnahme:** Backup + Restore-Test, A11y, Responsiveness, Produktions-Deployment, DoD-Test
+- [ ] **8 Härtung & Abnahme:** ✓ verschlüsseltes Backup + Restore-Test, ✓ A11y (axe, WCAG 2.2 AA), ✓ Responsiveness,
+      ✓ DoD-Abnahmetest (`docs/abnahme.md`), ✓ R2-Adapter · offen: Produktions-Deployment (`docs/deployment.md`)
 
 ## Danach
 

@@ -377,6 +377,8 @@ export function ReportEditor({
         {preview ? (
           <aside
             aria-label="Live-Vorschau"
+            // Scrollbarer Bereich muss per Tastatur erreichbar sein (WCAG 2.1.1).
+            tabIndex={0}
             className="min-w-0 border-2 border-border-default bg-surface p-6 xl:sticky xl:top-36 xl:max-h-[calc(100dvh-10rem)] xl:overflow-y-auto"
           >
             <Meta>Vorschau</Meta>
@@ -441,7 +443,7 @@ function StructuredField({
       <label htmlFor={id} className="text-[13px] font-medium">
         {field.label}
         {field.required ? (
-          <span className="ml-1 text-accent" title="Pflichtfeld zum Abschließen">
+          <span className="ml-1 text-accent-text" title="Pflichtfeld zum Abschließen">
             *
           </span>
         ) : null}

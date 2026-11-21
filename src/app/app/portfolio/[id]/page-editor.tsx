@@ -222,6 +222,8 @@ export function PageEditor({
 
       <aside
         aria-label="Vorschau der Seite"
+        // Scrollbarer Bereich muss per Tastatur erreichbar sein (WCAG 2.1.1).
+        tabIndex={0}
         className="min-w-0 border-2 border-border-default bg-bg p-8 xl:sticky xl:top-28 xl:max-h-[calc(100dvh-8rem)] xl:overflow-y-auto"
       >
         <Meta>Vorschau · so sehen es Personen mit Freigabelink</Meta>

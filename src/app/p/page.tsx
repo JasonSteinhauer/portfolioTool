@@ -72,7 +72,7 @@ export default async function ViewerHome() {
                     href={`/p/${page.slug}`}
                     className="group flex h-full flex-col gap-3 border-2 border-border-default bg-surface p-7 shadow-card transition-[border-color,box-shadow,transform] duration-[var(--motion-normal)] ease-technical hover:-translate-y-1 hover:border-accent hover:shadow-hover"
                   >
-                    <span className="font-mono text-xs text-accent">{String(i + 1).padStart(2, "0")}</span>
+                    <span className="font-mono text-xs text-accent-text">{String(i + 1).padStart(2, "0")}</span>
                     {hero && hero.type === "hero" && hero.eyebrow ? (
                       <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-secondary">
                         {hero.eyebrow}

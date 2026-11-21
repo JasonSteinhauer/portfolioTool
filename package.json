@@ -19,7 +19,9 @@
     "db:seed": "tsx scripts/db.ts seed",
     "check": "pnpm lint && pnpm typecheck && pnpm format:check && pnpm test:all",
     "postinstall": "node scripts/copy-fonts.mjs",
-    "owner:create": "tsx scripts/create-owner.ts"
+    "owner:create": "tsx scripts/create-owner.ts",
+    "backup": "tsx scripts/backup.ts create",
+    "restore": "tsx scripts/backup.ts restore"
   },
   "dependencies": {
     "@tiptap/core": "^3.34.0",
@@ -36,6 +38,7 @@
     "@tiptap/extensions": "^3.34.0",
     "@tiptap/pm": "^3.34.0",
     "@tiptap/react": "^3.34.0",
+    "aws4fetch": "^1.0.20",
     "better-auth": "^1.7.26",
     "drizzle-orm": "^0.45.4",
     "next": "16.4.6",
@@ -45,9 +48,11 @@
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
     "sharp": "0.35.5",
+    "tar": "^7.5.23",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@fontsource-variable/space-grotesk": "5.3.0",

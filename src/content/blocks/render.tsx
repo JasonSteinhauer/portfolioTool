@@ -48,7 +48,7 @@ function renderRichNode(node: RichTextBlockNode, key: number): ReactNode {
       return <p key={key}>{(node.content ?? []).map(renderInline)}</p>;
     case "bulletList":
       return (
-        <ul key={key} className="list-disc space-y-1 pl-6 marker:text-accent">
+        <ul key={key} className="list-disc space-y-1 pl-6 marker:text-accent-text">
           {node.content.map((item, i) => (
             <li key={i}>{item.content.map(renderRichNode)}</li>
           ))}
@@ -146,7 +146,7 @@ function renderBlock(block: Block): ReactNode {
           href={`/api/media/${block.mediaId}?download`}
           className="inline-flex items-center gap-3 self-start border-2 border-border-default bg-surface px-4 py-3 hover:border-border-strong"
         >
-          <span aria-hidden="true" className="font-mono text-xs text-accent">
+          <span aria-hidden="true" className="font-mono text-xs text-accent-text">
             ↓
           </span>
           <span className="font-medium">{block.label || "Anhang herunterladen"}</span>

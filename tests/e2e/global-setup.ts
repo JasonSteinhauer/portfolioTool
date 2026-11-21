@@ -9,6 +9,8 @@ import { createAuth } from "../../src/modules/auth/auth";
 import { createOwner } from "../../src/modules/auth/owner";
 import { totp } from "../support/totp";
 import {
+  E2E_A11Y_OWNERS,
+  E2E_DOD_OWNERS,
   E2E_AI_OWNERS,
   E2E_ENV,
   E2E_MEDIA_OWNERS,
@@ -63,6 +65,7 @@ export default async function globalSetup() {
     ...Object.values(E2E_PORTFOLIO_OWNERS),
     ...Object.values(E2E_MEDIA_OWNERS),
     ...Object.values(E2E_AI_OWNERS),
+    ...Object.values(E2E_A11Y_OWNERS),
   ]) {
     await createOwner(auth, db, { email: owner.email, name: owner.name, password: E2E_PASSWORD });
   }
@@ -70,6 +73,10 @@ export default async function globalSetup() {
   for (const [project, owner] of Object.entries(E2E_READY_OWNERS)) {
     await createOwner(auth, db, { email: owner.email, name: owner.name, password: E2E_PASSWORD });
     state[project] = await enrollTwoFactor(auth, owner.email);
+  }
+  for (const [project, owner] of Object.entries(E2E_DOD_OWNERS)) {
+    await createOwner(auth, db, { email: owner.email, name: owner.name, password: E2E_PASSWORD });
+    state[`dod-${project}`] = await enrollTwoFactor(auth, owner.email);
   }
   mkdirSync(dirname(E2E_STATE_FILE), { recursive: true });
   writeFileSync(E2E_STATE_FILE, JSON.stringify(state));
