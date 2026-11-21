@@ -9,6 +9,7 @@ import { createAuth } from "../../src/modules/auth/auth";
 import { createOwner } from "../../src/modules/auth/owner";
 import { totp } from "../support/totp";
 import {
+  E2E_AI_OWNERS,
   E2E_ENV,
   E2E_MEDIA_OWNERS,
   E2E_OWNERS,
@@ -61,6 +62,7 @@ export default async function globalSetup() {
     ...Object.values(E2E_OWNERS),
     ...Object.values(E2E_PORTFOLIO_OWNERS),
     ...Object.values(E2E_MEDIA_OWNERS),
+    ...Object.values(E2E_AI_OWNERS),
   ]) {
     await createOwner(auth, db, { email: owner.email, name: owner.name, password: E2E_PASSWORD });
   }

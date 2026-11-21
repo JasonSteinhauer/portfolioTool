@@ -29,6 +29,10 @@ export const AUDIT_ACTIONS = [
   "page.unpublished",
   "share_link.created",
   "share_link.revoked",
+  "ai.job.succeeded",
+  "ai.job.failed",
+  "ai.proposal.accepted",
+  "ai.proposal.rejected",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

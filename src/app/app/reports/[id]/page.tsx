@@ -11,6 +11,10 @@ import { PageHeader } from "@/ui/workspace-shell";
 import { trashReportAction } from "../actions";
 import { listFavoriteIds } from "@/modules/portfolio/service";
 import { createPageFromReportAction, toggleFavoriteAction } from "../../portfolio/actions";
+import { listProposals } from "@/modules/ai/language";
+import { aiRuntime } from "@/modules/ai/runtime";
+import { AiRequestButton } from "@/ui/ai/ai-request-button";
+import { requestLanguageAction } from "../../ai/actions";
 import { FinalizeForm } from "./finalize-form";
 
 export const metadata: Metadata = { title: "Report" };
@@ -45,7 +49,18 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     throw error;
   });
 
-  const favorite = (await listFavoriteIds(getDb(), actor, "report")).has(report.id);
+  const [favorites, pendingAi] = await Promise.all([
+    listFavoriteIds(getDb(), actor, "report"),
+    listProposals(getDb(), actor, { type: "report", id: report.id }),
+  ]);
+  const favorite = favorites.has(report.id);
+  const aiDisabled = !aiRuntime().provider
+    ? "KI ist nicht eingerichtet."
+    : report.classification === "internal_sensitive"
+      ? "Intern / sensibel: KI ist für diesen Report gesperrt."
+      : !report.aiAllowed
+        ? "Im Editor unter „KI erlauben“ freigeben, um Vorschläge zu erhalten."
+        : undefined;
   const fields = report.type.fieldSchema
     .map((f) => ({ ...f, display: formatValue(report.structuredFields[f.key], f.type, f.options) }))
     .filter((f) => f.display !== null);
@@ -115,6 +130,33 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           ) : (
             <p className="text-sm text-text-secondary">Noch keine Angaben.</p>
           )}
+          <section
+            aria-labelledby="ai-heading"
+            className="flex flex-col gap-3 border-2 border-border-default bg-surface p-5"
+          >
+            <h2 id="ai-heading" className="text-sm font-semibold">
+              KI-Assistenz
+            </h2>
+            <p className="text-xs text-text-secondary">
+              Vorschläge für Rechtschreibung und Formulierung. Nichts wird ohne deine Zustimmung geändert; E-Mail- und
+              IP-Adressen werden vor dem Senden geschwärzt.
+            </p>
+            <AiRequestButton
+              action={requestLanguageAction}
+              name="reportId"
+              value={report.id}
+              label="Sprachvorschläge erzeugen"
+              disabledReason={aiDisabled}
+            />
+            {pendingAi.length > 0 ? (
+              <Link
+                href={`/app/reports/${report.id}/ai`}
+                className="text-sm font-medium underline decoration-accent underline-offset-4"
+              >
+                {pendingAi.length} offene Vorschläge ansehen
+              </Link>
+            ) : null}
+          </section>
           <form action={trashReportAction}>
             <input type="hidden" name="reportId" value={report.id} />
             <Button type="submit" variant="danger" size="sm" className="w-full">

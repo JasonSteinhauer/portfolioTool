@@ -16,7 +16,8 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
 - [x] **4 Portfolio-Seiten:** Komponenten-Registry, Seite aus Report, Vorschau, Freigabe als Snapshot
 - [x] **5 Teilen:** Share-Links (Token nur als Hash), Viewer, Widerruf, Ablauf, Isolationstests
 - [x] **6 Kuratierung:** Favoriten, Showcase, Profil, One-Pager, Timeline – Collections folgen später
-- [ ] **7 KI-Basis:** Provider-Port, Gateway, Budget, Sprachvorschläge, Seitenkomposition mit Quellen
+- [x] **7 KI-Basis:** Provider-Port (Anthropic + Test-Provider), Gateway mit Budget/Limits/Schwärzung,
+      Sprachvorschläge mit Diff, Seitenentwurf nur mit belegten Aussagen, Nutzungsübersicht
 - [ ] **8 Härtung & Abnahme:** Backup + Restore-Test, A11y, Responsiveness, Produktions-Deployment, DoD-Test
 
 ## Danach

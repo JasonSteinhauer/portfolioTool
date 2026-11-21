@@ -69,6 +69,7 @@ docs/adr/             Architekturentscheidungen
 - Login mit Passwort und optionalem zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
 - Jede Workspace-Seite und Server Action prüft die Anmeldung selbst (per Test erzwungen).
 - Großzügige Rate-Limits für Login und 2FA (gegen Bots); generische Fehlermeldungen ohne Konto-Enumeration.
+- KI ist standardmäßig aus; wenn aktiv, nur über das Gateway (Budget, Schwärzung, nur Vorschläge, keine Inhalte in Logs).
 - Uploads: Typ per Magic Bytes, Bilder neu kodiert ohne EXIF/GPS, keine SVG/HTML, Auslieferung mit Sandbox-CSP.
 - Geteilt wird nur über widerrufbare Links (Token nur als Hash gespeichert) und nur freigegebene Snapshots.
 - Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
