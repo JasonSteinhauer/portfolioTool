@@ -125,6 +125,11 @@ describe("Anthropic-Fehler", () => {
     });
     expect(credit.message).toMatch(/Kein Guthaben/);
     expect(credit.retryable).toBe(false);
+    const credit2 = await call(400, {
+      type: "error",
+      error: { type: "invalid_request_error", message: "credit_balance_too_low" },
+    });
+    expect(credit2.message).toMatch(/Kein Guthaben/);
     expect(
       (await call(404, { type: "error", error: { type: "not_found_error", message: "model: x" } })).message,
     ).toMatch(/Modell/);
