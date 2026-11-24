@@ -48,8 +48,9 @@ Lokal mit installiertem Chrome statt Playwright-Browser: `PW_CHANNEL=chrome pnpm
 
 ```text
 src/
-  app/                Routen (Workspace, später Viewer und API)
+  app/                Routen: /app (Workspace), /s + /p (Viewer per Freigabelink), /api
   content/blocks/     Dokumentmodell der Reports (Zod) – kein HTML, nur typisierte Blöcke
+  content/page-components/  Komponenten der Portfolio-Seiten (Zod) + Seite aus Report
   modules/<modul>/    Fachmodule: schema · service · repo · policy · actions · ui
   lib/                config (Env-Validierung) · db (Schema, Client, Seed) · security (CSP)
   ui/                 Design-System (Tokens in app/globals.css)
@@ -68,6 +69,7 @@ docs/adr/             Architekturentscheidungen
 - Login mit Passwort und optionalem zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
 - Jede Workspace-Seite und Server Action prüft die Anmeldung selbst (per Test erzwungen).
 - Großzügige Rate-Limits für Login und 2FA (gegen Bots); generische Fehlermeldungen ohne Konto-Enumeration.
+- Geteilt wird nur über widerrufbare Links (Token nur als Hash gespeichert) und nur freigegebene Snapshots.
 - Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
 - Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 

@@ -22,6 +22,10 @@ export const AUDIT_ACTIONS = [
   "report.deleted",
   "report.restored",
   "report.version_restored",
+  "page.published",
+  "page.unpublished",
+  "share_link.created",
+  "share_link.revoked",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
