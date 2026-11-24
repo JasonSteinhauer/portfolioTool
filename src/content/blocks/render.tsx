@@ -156,7 +156,7 @@ function renderBlock(block: Block): ReactNode {
 }
 
 /** Unvollständige Blöcke (z. B. gerade eingefügt) werden nicht angezeigt. */
-function isRenderable(block: Block): boolean {
+export function isRenderable(block: Block): boolean {
   switch (block.type) {
     case "heading":
       return block.text.trim() !== "";

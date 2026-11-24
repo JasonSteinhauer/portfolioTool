@@ -153,6 +153,30 @@ export function defaultFakeResponder(request: AiRequest): string {
         .filter((s, i) => s.text !== units[i].text),
     });
   }
+  if (request.kind === "report.rewrite") {
+    const units = (data?.texte ?? []) as { key: string; text: string }[];
+    // Deterministisch: Stichpunkte → Sätze in Ich-Form.
+    const rewrite = (text: string) =>
+      text
+        .split(/\r?\n/)
+        .map((l) =>
+          l
+            .replace(/^\s*[-*•]\s*/, "")
+            .replace(/[,;]\s*$/, "")
+            .trim(),
+        )
+        .filter(Boolean)
+        .map((l) => {
+          const sentence = l.charAt(0).toUpperCase() + l.slice(1);
+          return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+        })
+        .join(" ");
+    return JSON.stringify({
+      vorschlaege: units
+        .map((u) => ({ key: u.key, text: rewrite(u.text), begruendung: "Stichpunkte ausformuliert" }))
+        .filter((s, i) => s.text !== units[i].text),
+    });
+  }
   if (request.kind === "page.compose") {
     const quellen = (data?.quellen ?? []) as { id: string; art: string; label: string; text: string }[];
     const title = quellen.find((q) => q.id === "field:title");

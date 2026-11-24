@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DocumentView } from "@/content/blocks/render";
+import { ReportDocument } from "@/content/report-document";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { getReport, ReportNotFoundError } from "@/modules/reports/service";
@@ -14,12 +14,11 @@ import { createPageFromReportAction, toggleFavoriteAction } from "../../portfoli
 import { listProposals } from "@/modules/ai/language";
 import { aiRuntime } from "@/modules/ai/runtime";
 import { AiRequestButton } from "@/ui/ai/ai-request-button";
-import { requestLanguageAction } from "../../ai/actions";
+import { requestLanguageAction, requestRewriteAction } from "../../ai/actions";
 import { FinalizeForm } from "./finalize-form";
 
 export const metadata: Metadata = { title: "Report" };
 
-const dateFormat = new Intl.DateTimeFormat("de-DE", { dateStyle: "long", timeZone: "Europe/Berlin" });
 const dateTimeFormat = new Intl.DateTimeFormat("de-DE", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -31,15 +30,6 @@ const CLASSIFICATION = {
   internal_sensitive: "Intern / sensibel",
   publishable: "Veröffentlichbar",
 } as const;
-
-function formatValue(value: unknown, type: string, options?: { value: string; label: string }[]): string | null {
-  if (value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0))
-    return null;
-  if (Array.isArray(value)) return value.join(", ");
-  if (type === "date" && typeof value === "string") return dateFormat.format(new Date(`${value}T12:00:00Z`));
-  if (type === "select") return options?.find((o) => o.value === value)?.label ?? String(value);
-  return String(value);
-}
 
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { actor } = await requireOwner();
@@ -61,9 +51,6 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
       : !report.aiAllowed
         ? "Im Editor unter „KI erlauben“ freigeben, um Vorschläge zu erhalten."
         : undefined;
-  const fields = report.type.fieldSchema
-    .map((f) => ({ ...f, display: formatValue(report.structuredFields[f.key], f.type, f.options) }))
-    .filter((f) => f.display !== null);
   const labels = Object.fromEntries(report.type.fieldSchema.map((f) => [f.key, f.label]));
 
   return (
@@ -113,23 +100,17 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 max-w-3xl">
-          <DocumentView doc={report.content} />
+          <ReportDocument
+            typeName={report.type.name}
+            title={report.title}
+            fieldSchema={report.type.fieldSchema}
+            structuredFields={report.structuredFields as Record<string, unknown>}
+            content={report.content}
+            status={report.status}
+            hideTitle
+          />
         </div>
         <aside className="flex flex-col gap-6">
-          {fields.length > 0 ? (
-            <dl className="flex flex-col gap-4 border-2 border-border-default bg-surface p-5">
-              {fields.map((f) => (
-                <div key={f.key}>
-                  <dt>
-                    <Meta>{f.label}</Meta>
-                  </dt>
-                  <dd className="mt-1 whitespace-pre-line text-sm">{f.display}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="text-sm text-text-secondary">Noch keine Angaben.</p>
-          )}
           <section
             aria-labelledby="ai-heading"
             className="flex flex-col gap-3 border-2 border-border-default bg-surface p-5"
@@ -138,8 +119,8 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
               KI-Assistenz
             </h2>
             <p className="text-xs text-text-secondary">
-              Vorschläge für Rechtschreibung und Formulierung. Nichts wird ohne deine Zustimmung geändert; E-Mail- und
-              IP-Adressen werden vor dem Senden geschwärzt.
+              Korrektur oder ausformulierte Fassung deiner Stichpunkte – mit Vorschau. Nichts wird ohne deine Zustimmung
+              geändert; E-Mail- und IP-Adressen werden vor dem Senden geschwärzt.
             </p>
             <AiRequestButton
               action={requestLanguageAction}
@@ -147,6 +128,13 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
               value={report.id}
               label="Sprachvorschläge erzeugen"
               disabledReason={aiDisabled}
+            />
+            <AiRequestButton
+              action={requestRewriteAction}
+              name="reportId"
+              value={report.id}
+              label="KI-Fassung (Stichpunkte ausformulieren)"
+              disabledReason={aiDisabled ? " " : undefined}
             />
             {pendingAi.length > 0 ? (
               <Link

@@ -35,6 +35,21 @@ export async function requestLanguageAction(_prev: AiActionState, formData: Form
   redirect(`/app/reports/${reportId}/ai`);
 }
 
+/** KI-Fassung: Stichpunkte ausformulieren lassen (Vorschläge, nichts wird automatisch geändert). */
+export async function requestRewriteAction(_prev: AiActionState, formData: FormData): Promise<AiActionState> {
+  const { actor } = await requireOwner();
+  const reportId = id.parse(formData.get("reportId"));
+  const { config, provider } = aiRuntime();
+  try {
+    await requestLanguageSuggestions({ db: getDb(), actor, provider, config }, reportId, "rewrite");
+  } catch (error) {
+    const message = messageFor(error);
+    if (message) return { error: message };
+    throw error;
+  }
+  redirect(`/app/reports/${reportId}/ai`);
+}
+
 export async function decideLanguageAction(_prev: AiActionState, formData: FormData): Promise<AiActionState> {
   const { actor } = await requireOwner();
   const reportId = id.parse(formData.get("reportId"));

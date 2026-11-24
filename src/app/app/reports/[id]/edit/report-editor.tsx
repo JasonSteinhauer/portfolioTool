@@ -1,14 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { DocumentView } from "@/content/blocks/render";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { requestRewriteAction } from "@/app/app/ai/actions";
 import type { Block, ContentDocument } from "@/content/blocks/schema";
 import type { FieldDefinition } from "@/modules/reports/report-types";
 import type { Classification } from "@/modules/reports/service";
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { cn } from "@/ui/cn";
+import { ReportDocument } from "@/content/report-document";
 import { AddBlockMenu, BlockEditor } from "./block-editor";
 
 export type EditorInitial = {
@@ -57,11 +58,14 @@ export function ReportEditor({
   typeName,
   fieldSchema,
   initial,
+  aiAvailable = false,
 }: {
   reportId: string;
   typeName: string;
   fieldSchema: FieldDefinition[];
   initial: EditorInitial;
+  /** KI ist auf dem Server eingerichtet. */
+  aiAvailable?: boolean;
 }) {
   const [draft, setDraft] = useState<Draft>({
     title: initial.title,
@@ -75,6 +79,7 @@ export function ReportEditor({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<string>();
   const [preview, setPreview] = useState(false);
+  const [aiPending, startAi] = useTransition();
 
   const router = useRouter();
   const revision = useRef(initial.revision);
@@ -204,6 +209,25 @@ export function ReportEditor({
     return acc;
   }, {});
 
+  /** KI-Fassung: erst speichern (die KI arbeitet mit dem gespeicherten Stand), dann Auftrag starten. */
+  const requestRewrite = () => {
+    if (!draft.aiAllowed || draft.classification === "internal_sensitive") {
+      setNotice("Für die KI-Fassung zuerst „KI-Verarbeitung erlauben“ aktivieren (nicht bei „Intern / sensibel“).");
+      return;
+    }
+    startAi(async () => {
+      const saved = await persist();
+      if (!saved) {
+        setNotice("Bitte erst speichern – die KI-Fassung nutzt den gespeicherten Stand.");
+        return;
+      }
+      const body = new FormData();
+      body.set("reportId", reportId);
+      const result = await requestRewriteAction({}, body);
+      if (result?.error) setNotice(result.error);
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="sticky top-[49px] z-30 -mx-6 flex flex-wrap items-center justify-between gap-3 border-b border-line-technical bg-bg/95 px-6 py-3 backdrop-blur-sm max-xl:top-[98px]">
@@ -217,6 +241,17 @@ export function ReportEditor({
           <Button variant="ghost" size="sm" aria-pressed={preview} onClick={() => setPreview((p) => !p)}>
             {preview ? "Vorschau ausblenden" : "Vorschau"}
           </Button>
+          {aiAvailable ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={aiPending || save.kind === "saving" || save.kind === "conflict"}
+              onClick={requestRewrite}
+              title="Die KI formuliert deine Stichpunkte aus – du entscheidest, was übernommen wird."
+            >
+              {aiPending ? "KI arbeitet …" : "KI-Fassung"}
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -382,8 +417,16 @@ export function ReportEditor({
             className="min-w-0 border-2 border-border-default bg-surface p-6 xl:sticky xl:top-36 xl:max-h-[calc(100dvh-10rem)] xl:overflow-y-auto"
           >
             <Meta>Vorschau</Meta>
-            <h1 className="mb-6 mt-2 text-3xl font-semibold">{draft.title}</h1>
-            <DocumentView doc={draft.content} />
+            <div className="mt-4">
+              <ReportDocument
+                typeName={typeName}
+                title={draft.title}
+                fieldSchema={fieldSchema}
+                structuredFields={draft.structuredFields}
+                content={draft.content}
+                status={status}
+              />
+            </div>
           </aside>
         ) : null}
       </div>

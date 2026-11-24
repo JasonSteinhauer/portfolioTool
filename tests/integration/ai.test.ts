@@ -279,6 +279,36 @@ describe("Sprachvorschläge", () => {
   });
 });
 
+describe("KI-Fassung (ausformulieren)", () => {
+  it("formuliert nur längere Texte aus und übernimmt nach Zustimmung", async () => {
+    const id = await report();
+    const before = await getReport(db, owner, id);
+    await saveReport(db, owner, id, {
+      title: before.title,
+      structuredFields: { ...(before.structuredFields as object), conclusion: "regel angepasst,\nalarm geschlossen" },
+      content: before.content,
+      classification: before.classification,
+      aiAllowed: true,
+      revision: before.revision,
+    });
+    const provider = new FakeProvider();
+    await requestLanguageSuggestions(deps(provider), id, "rewrite");
+    expect(provider.calls[0].kind).toBe("report.rewrite");
+    // Titel und Überschriften werden nicht ausformuliert
+    expect(provider.calls[0].user).not.toContain('"key":"title"');
+    expect(provider.calls[0].user).not.toContain("blk_head00000001");
+
+    const proposals = await listProposals(db, owner, { type: "report", id });
+    const conclusion = proposals.find((p) => (p.payload as { key: string }).key === "field:conclusion")!;
+    expect(conclusion.payload).toMatchObject({ mode: "rewrite", after: "Regel angepasst. Alarm geschlossen." });
+
+    const result = await decideLanguageProposals(db, owner, id, { accept: [conclusion.id], reject: [] });
+    expect(result).toMatchObject({ ok: true, accepted: 1 });
+    const after = await getReport(db, owner, id);
+    expect((after.structuredFields as { conclusion: string }).conclusion).toBe("Regel angepasst. Alarm geschlossen.");
+  });
+});
+
 describe("Seitenkomposition", () => {
   it("erzeugt einen belegten Entwurf, verwirft Unbelegtes und übernimmt mit Code/Bildern", async () => {
     const id = await report();
