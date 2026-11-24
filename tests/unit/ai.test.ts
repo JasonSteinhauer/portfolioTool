@@ -107,6 +107,33 @@ describe("Anthropic-Adapter", () => {
   });
 });
 
+describe("Anthropic-Fehler", () => {
+  const call = (status: number, body: unknown) =>
+    new AnthropicProvider("k".repeat(24), "m", (async () => Response.json(body, { status })) as unknown as typeof fetch)
+      .complete({ kind: "x", system: "", user: "", maxOutputTokens: 1 })
+      .then(
+        () => {
+          throw new Error("Fehler erwartet");
+        },
+        (e: unknown) => e as AiProviderError,
+      );
+
+  it("übersetzt bekannte Ursachen in feste Meldungen – ohne den Anbieter-Text", async () => {
+    const credit = await call(400, {
+      type: "error",
+      error: { type: "invalid_request_error", message: "Your credit balance is too low to access the Anthropic API." },
+    });
+    expect(credit.message).toMatch(/Kein Guthaben/);
+    expect(credit.retryable).toBe(false);
+    expect(
+      (await call(404, { type: "error", error: { type: "not_found_error", message: "model: x" } })).message,
+    ).toMatch(/Modell/);
+    const other = await call(400, { type: "error", error: { type: "invalid_request_error", message: "echo GEHEIM" } });
+    expect(other.message).toBe("KI-Dienst antwortet mit Fehler 400 (invalid_request_error).");
+    expect(other.message).not.toContain("GEHEIM");
+  });
+});
+
 describe("Antworten auswerten", () => {
   it("extractJson toleriert Zäune und Text drumherum", () => {
     expect(extractJson('Hier:\n```json\n{"a":1}\n```')).toEqual({ a: 1 });
