@@ -1,4 +1,5 @@
 import type { AiConfig } from "./config";
+import { Redactor } from "./redact";
 
 /**
  * Provider-Port: die Fachlogik kennt nur `complete()`. Adapter: Anthropic (Standard) und ein
@@ -71,7 +72,7 @@ export class AnthropicProvider implements AiProvider {
       const errorType = body?.error?.type ?? "unbekannt";
       const providerText = (body?.error?.message ?? "").toLowerCase();
       const retryable = response.status === 429 || response.status >= 500;
-      const message = providerText.includes("credit balance")
+      const message = /credit[ _]balance|purchase credits|plans (&|and) billing/.test(providerText)
         ? "Kein Guthaben im Anthropic-Konto. Unter console.anthropic.com → Billing Guthaben aufladen."
         : response.status === 401 || response.status === 403 || errorType === "authentication_error"
           ? "KI-Zugang ungültig (API-Schlüssel prüfen)."
@@ -82,8 +83,10 @@ export class AnthropicProvider implements AiProvider {
               : response.status === 529 || errorType === "overloaded_error"
                 ? "KI-Dienst ist überlastet – bitte später erneut."
                 : `KI-Dienst antwortet mit Fehler ${response.status} (${errorType}).`;
-      // Für die Betriebs-Logs: Status und Fehlertyp, keine Inhalte.
-      console.warn(`[ai] anthropic ${response.status} ${errorType}`);
+      // Nur für die Server-Logs (nie in der Oberfläche): Anbieter-Text gekürzt und geschwärzt,
+      // damit Konfigurationsfehler diagnostizierbar sind.
+      const logText = new Redactor().redact((body?.error?.message ?? "").slice(0, 300)).replace(/\s+/g, " ");
+      console.warn(`[ai] anthropic ${response.status} ${errorType}: ${logText}`);
       throw new AiProviderError(message, retryable);
     }
 
