@@ -151,7 +151,7 @@ test("Entwurf erneut öffnen: alles ist gespeichert und weiter bearbeitbar", asy
 
 test("Tab-Wechsel speichert automatisch", async () => {
   await page
-    .getByLabel("Ausgangslage")
+    .getByRole("textbox", { name: "Ausgangslage" })
     .fill("Synthetischer Alert: 42 fehlgeschlagene Anmeldungen in 3 Minuten (Tab-Wechsel).");
   await expect(page.getByTestId("save-status")).toHaveAttribute("data-state", "dirty");
   // Tab wird verborgen (Wechsel, Minimieren) → visibilitychange
@@ -186,7 +186,7 @@ test("Schließen des Tabs speichert", async () => {
   const closing = await context.newPage();
   await closing.goto(`${reportUrl}/edit`);
   await closing
-    .getByLabel("Fragestellung")
+    .getByRole("textbox", { name: "Fragestellung" })
     .fill("Brute Force oder fehlerhaft konfigurierter Dienst? (beim Schließen gespeichert)");
   await closing.close({ runBeforeUnload: true });
 

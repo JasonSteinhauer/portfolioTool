@@ -196,6 +196,15 @@ describe("Antworten auswerten", () => {
     ]);
   });
 
+  it("Ausformulieren erlaubt längere Texte, Korrektur nicht", () => {
+    const r = new Redactor();
+    const unit = { key: "field:question", label: "Frage", text: "kurz, knapp", maxLength: 2000, multiline: true };
+    const sent = [{ unit, redacted: unit.text }];
+    const longer = { vorschlaege: [{ key: "field:question", text: "Die Antwort war kurz und knapp formuliert." }] };
+    expect(validateSuggestions(longer, sent, r, "proofread")).toHaveLength(0);
+    expect(validateSuggestions(longer, sent, r, "rewrite")).toHaveLength(1);
+  });
+
   it("validateComposition behält nur belegte Aussagen", () => {
     const r = new Redactor();
     const sources = [

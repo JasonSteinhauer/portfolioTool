@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
+import { aiRuntime } from "@/modules/ai/runtime";
 import { listMedia, toSummary } from "@/modules/media/service";
 import { getReport, ReportNotFoundError } from "@/modules/reports/service";
 import { MediaLibraryProvider } from "@/ui/media/media-picker";
@@ -26,6 +27,7 @@ export default async function EditReportPage({ params }: { params: Promise<{ id:
         reportId={report.id}
         typeName={report.type.name}
         fieldSchema={report.type.fieldSchema}
+        aiAvailable={Boolean(aiRuntime().provider)}
         initial={{
           title: report.title,
           structuredFields: report.structuredFields,

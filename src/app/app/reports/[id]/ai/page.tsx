@@ -24,7 +24,9 @@ export default async function ReportAiPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHeader
-        title="Sprachvorschläge"
+        title={
+          proposals.some((p) => (p.payload as { mode?: string }).mode === "rewrite") ? "KI-Fassung" : "Sprachvorschläge"
+        }
         meta={
           <Meta>
             <Link href={`/app/reports/${report.id}`} className="hover:text-text-primary">
@@ -34,21 +36,30 @@ export default async function ReportAiPage({ params }: { params: Promise<{ id: s
         }
       />
       <p className="mb-6 max-w-2xl text-sm text-text-secondary">
-        Wähle aus, was übernommen werden soll. Nicht ausgewählte Vorschläge werden verworfen. Vor dem Übernehmen wird
-        der bisherige Stand als Version gesichert.
+        Wähle aus, was übernommen werden soll – die Vorschau rechts zeigt das Ergebnis sofort. Nicht ausgewählte
+        Vorschläge werden verworfen. Vor dem Übernehmen wird der bisherige Stand als Version gesichert.
       </p>
       <LanguageProposalsForm
         reportId={report.id}
         proposals={proposals.map((p) => {
-          const payload = p.payload as { label: string; before: string; after: string };
+          const payload = p.payload as { key: string; label: string; before: string; after: string };
           return {
             id: p.id,
+            key: payload.key,
             label: payload.label,
             before: payload.before,
             after: payload.after,
             reason: p.rationale ?? "",
           };
         })}
+        report={{
+          typeName: report.type.name,
+          title: report.title,
+          fieldSchema: report.type.fieldSchema,
+          structuredFields: report.structuredFields as Record<string, unknown>,
+          content: report.content,
+          status: report.status,
+        }}
       />
     </>
   );
