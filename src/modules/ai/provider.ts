@@ -65,14 +65,25 @@ export class AnthropicProvider implements AiProvider {
     }
 
     if (!response.ok) {
-      // Nie den Antworttext des Anbieters durchreichen (könnte Eingaben spiegeln) – nur den Status.
+      // Nie den Antworttext des Anbieters durchreichen (könnte Eingaben spiegeln). Er wird nur auf
+      // bekannte Ursachen geprüft und in eine eigene, feste Meldung übersetzt.
+      const body = (await response.json().catch(() => null)) as { error?: { type?: string; message?: string } } | null;
+      const errorType = body?.error?.type ?? "unbekannt";
+      const providerText = (body?.error?.message ?? "").toLowerCase();
       const retryable = response.status === 429 || response.status >= 500;
-      const message =
-        response.status === 401 || response.status === 403
+      const message = providerText.includes("credit balance")
+        ? "Kein Guthaben im Anthropic-Konto. Unter console.anthropic.com → Billing Guthaben aufladen."
+        : response.status === 401 || response.status === 403 || errorType === "authentication_error"
           ? "KI-Zugang ungültig (API-Schlüssel prüfen)."
-          : response.status === 429
-            ? "KI-Dienst ausgelastet – bitte später erneut."
-            : `KI-Dienst antwortet mit Fehler ${response.status}.`;
+          : response.status === 404 || errorType === "not_found_error"
+            ? "Das eingestellte KI-Modell ist nicht verfügbar (AI_MODEL prüfen)."
+            : response.status === 429
+              ? "KI-Dienst ausgelastet oder Ausgabenlimit erreicht – bitte später erneut."
+              : response.status === 529 || errorType === "overloaded_error"
+                ? "KI-Dienst ist überlastet – bitte später erneut."
+                : `KI-Dienst antwortet mit Fehler ${response.status} (${errorType}).`;
+      // Für die Betriebs-Logs: Status und Fehlertyp, keine Inhalte.
+      console.warn(`[ai] anthropic ${response.status} ${errorType}`);
       throw new AiProviderError(message, retryable);
     }
 
