@@ -26,13 +26,22 @@ AI_MONTHLY_BUDGET_USD=5
 
 Secrets nie ins Repo; `BETTER_AUTH_SECRET` später nicht mehr ändern (sonst 2FA neu einrichten).
 
-## 3. Datenbank vorbereiten (einmalig, lokal gegen Neon)
+## 3. Datenbank vorbereiten und Owner anlegen
+
+**Variante A – mit Shell-Zugriff auf Postgres:**
 
 ```bash
 DATABASE_URL=<Neon direct (unpooled) string> pnpm db:migrate
 DATABASE_URL=<…> pnpm db:seed
 DATABASE_URL=<…> pnpm owner:create --email <du@…> --name "<Name>"
 ```
+
+**Variante B – ohne Shell (so umgesetzt am 24.11.2026):** Migrationen + Seed über den Neon-Connector
+(identische SQL-Dateien, inkl. `drizzle.__drizzle_migrations`), Owner über die Einrichtungsseite:
+
+1. In Vercel `SETUP_TOKEN` (≥ 32 zufällige Zeichen, „Sensitive“) setzen und neu deployen.
+2. `https://<domain>/setup` öffnen, Token, Name, E-Mail und eigenes Passwort eingeben.
+3. Die Seite ist danach dauerhaft gesperrt (404). `SETUP_TOKEN` in Vercel wieder löschen.
 
 Danach in der App unter Einstellungen 2FA einrichten (empfohlen).
 

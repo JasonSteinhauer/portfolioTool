@@ -13,6 +13,8 @@ export const E2E_ENV = {
   // Deterministischer Test-Provider: kein Netzwerk, keine Kosten.
   AI_PROVIDER: "fake",
   AI_ALLOW_FAKE: "1",
+  // Gesetzt, damit die Sperre „Konto existiert bereits“ getestet wird (nicht „nicht aktiviert“).
+  SETUP_TOKEN: "e2e-setup-token-nur-fuer-tests-0000000000",
 };
 
 export const E2E_PASSWORD = "E2E-Test-Passwort-2026!";
