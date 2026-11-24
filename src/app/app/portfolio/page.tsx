@@ -89,7 +89,7 @@ export default async function PortfolioPage() {
                   <Link href={`/app/portfolio/${p.id}`} className="flex min-w-0 flex-col gap-1 hover:text-text-primary">
                     <span className="truncate font-medium">
                       {p.favorite ? (
-                        <span aria-label="Favorit" className="mr-2 text-accent">
+                        <span aria-label="Favorit" className="mr-2 text-accent-text">
                           ★
                         </span>
                       ) : null}
@@ -122,7 +122,7 @@ export default async function PortfolioPage() {
                     className="flex items-center justify-between gap-3 border-2 border-border-default bg-surface px-4 py-3"
                   >
                     <span>
-                      <span className="mr-2 text-accent">★</span>
+                      <span className="mr-2 text-accent-text">★</span>
                       {r.title}
                     </span>
                     <form action={createPageFromReportAction}>

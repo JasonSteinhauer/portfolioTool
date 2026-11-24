@@ -53,13 +53,15 @@ describe("API-Routen", () => {
     it(`${relative(process.cwd(), file)} prüft Session und Herkunft`, () => {
       const source = readFileSync(file, "utf8");
       expect(source).toMatch(/await (getOwner|requireOwner)\(\)/);
-      expect(source).toMatch(/sameOrigin\(request\)/);
+      if (/export async function (POST|PUT|PATCH|DELETE)\b/.test(source))
+        expect(source).toMatch(/sameOrigin\(request\)/);
+      if (/export async function GET\b/.test(source)) expect(source).toMatch(/notCrossSite\(request\)/);
     });
   }
 });
 
 describe("Viewer-Seiten (/p)", () => {
-  const viewerPages = walk(join(process.cwd(), "src/app/p")).filter((f) => f.endsWith("page.tsx"));
+  const viewerPages = walk(join(process.cwd(), "src/app/p")).filter((f) => /\/(page\.tsx|route\.ts)$/.test(f));
   it("findet Viewer-Seiten", () => expect(viewerPages.length).toBeGreaterThanOrEqual(2));
   for (const file of viewerPages) {
     it(`${relative(process.cwd(), file)} prüft den Freigabelink`, () => {

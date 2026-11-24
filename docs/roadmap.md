@@ -11,12 +11,15 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
       Widerruf), Rate-Limit, Audit, `can()`-Policy, Routen-Schutztest, Workspace mit Platzhaltern
 - [x] **2 Reports:** Formulare je Typ, Blockeditor (Text/Überschrift/Code/Link/Erkenntnis), Speichern beim
       Verlassen mit Konflikterkennung, Live-Vorschau, Versionen mit Wiederherstellung, Abschließen, Volltextsuche, Papierkorb
-- [ ] **3 Medien:** Upload-Pipeline mit Quarantäne, Mediathek, Bild/Anhang-Blöcke, Deduplizierung
+- [x] **3 Medien:** Upload-Pipeline (Magic Bytes, Neukodierung ohne Metadaten, PDF-/Textprüfung), Mediathek,
+      Bild/Anhang-Blöcke, Bilder in Portfolio-Seiten (eingefroren bei Freigabe), Deduplizierung, Papierkorb
 - [x] **4 Portfolio-Seiten:** Komponenten-Registry, Seite aus Report, Vorschau, Freigabe als Snapshot
 - [x] **5 Teilen:** Share-Links (Token nur als Hash), Viewer, Widerruf, Ablauf, Isolationstests
 - [x] **6 Kuratierung:** Favoriten, Showcase, Profil, One-Pager, Timeline – Collections folgen später
-- [ ] **7 KI-Basis:** Provider-Port, Gateway, Budget, Sprachvorschläge, Seitenkomposition mit Quellen
-- [ ] **8 Härtung & Abnahme:** Backup + Restore-Test, A11y, Responsiveness, Produktions-Deployment, DoD-Test
+- [x] **7 KI-Basis:** Provider-Port (Anthropic + Test-Provider), Gateway mit Budget/Limits/Schwärzung,
+      Sprachvorschläge mit Diff, Seitenentwurf nur mit belegten Aussagen, Nutzungsübersicht
+- [ ] **8 Härtung & Abnahme:** ✓ verschlüsseltes Backup + Restore-Test, ✓ A11y (axe, WCAG 2.2 AA), ✓ Responsiveness,
+      ✓ DoD-Abnahmetest (`docs/abnahme.md`), ✓ R2-Adapter · offen: Produktions-Deployment (`docs/deployment.md`)
 
 ## Danach
 

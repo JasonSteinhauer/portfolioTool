@@ -52,7 +52,7 @@ src/
   content/blocks/     Dokumentmodell der Reports (Zod) – kein HTML, nur typisierte Blöcke
   content/page-components/  Komponenten der Portfolio-Seiten (Zod) + Seite aus Report
   modules/<modul>/    Fachmodule: schema · service · repo · policy · actions · ui
-  lib/                config (Env-Validierung) · db (Schema, Client, Seed) · security (CSP)
+  lib/                config (Env-Validierung) · db (Schema, Client, Seed) · security (CSP) · storage (Medien)
   ui/                 Design-System (Tokens in app/globals.css)
   proxy.ts            CSP-Nonce pro Request
 drizzle/              versionierte SQL-Migrationen
@@ -69,8 +69,16 @@ docs/adr/             Architekturentscheidungen
 - Login mit Passwort und optionalem zweitem Faktor; keine Selbstregistrierung, keine öffentlichen Auth-Endpunkte.
 - Jede Workspace-Seite und Server Action prüft die Anmeldung selbst (per Test erzwungen).
 - Großzügige Rate-Limits für Login und 2FA (gegen Bots); generische Fehlermeldungen ohne Konto-Enumeration.
+- KI ist standardmäßig aus; wenn aktiv, nur über das Gateway (Budget, Schwärzung, nur Vorschläge, keine Inhalte in Logs).
+- Uploads: Typ per Magic Bytes, Bilder neu kodiert ohne EXIF/GPS, keine SVG/HTML, Auslieferung mit Sandbox-CSP.
 - Geteilt wird nur über widerrufbare Links (Token nur als Hash gespeichert) und nur freigegebene Snapshots.
 - Reports sind standardmäßig `private` und **nicht** für KI freigegeben (`ai_allowed = false`).
 - Nur synthetische oder ausdrücklich freigegebene Testdaten – keine echten Firmen-/SOC-Daten.
 
 Details: [`docs/adr/`](docs/adr/).
+
+## Betrieb
+
+- Deployment-Anleitung: [`docs/deployment.md`](docs/deployment.md)
+- Abnahme (Definition of Done → Tests): [`docs/abnahme.md`](docs/abnahme.md)
+- Backup: `BACKUP_PASSPHRASE=… pnpm backup` · Wiederherstellung: `pnpm restore --file … --confirm`

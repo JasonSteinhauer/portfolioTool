@@ -27,7 +27,7 @@ export function Field({ label, hint, error, required, children }: FieldProps) {
       <label htmlFor={id} className="text-[13px] font-medium text-text-primary">
         {label}
         {required ? (
-          <span className="ml-1 text-accent" aria-hidden="true">
+          <span className="ml-1 text-accent-text" aria-hidden="true">
             *
           </span>
         ) : null}

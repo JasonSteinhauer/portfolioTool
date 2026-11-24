@@ -9,7 +9,7 @@ import type { Classification } from "@/modules/reports/service";
 import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { cn } from "@/ui/cn";
-import { AddBlockMenu, BlockEditor, createBlock } from "./block-editor";
+import { AddBlockMenu, BlockEditor } from "./block-editor";
 
 export type EditorInitial = {
   title: string;
@@ -340,7 +340,7 @@ export function ReportEditor({
             </h2>
             {draft.content.blocks.length === 0 ? (
               <p className="text-sm text-text-secondary">
-                Noch keine Blöcke. Füge Text, Code, Links oder Erkenntnisse hinzu.
+                Noch keine Blöcke. Füge Text, Bilder, Code, Links oder Erkenntnisse hinzu.
               </p>
             ) : null}
             {draft.content.blocks.map((block, index) => (
@@ -361,22 +361,24 @@ export function ReportEditor({
                     return next;
                   })
                 }
-                onInsertAfter={(type) =>
+                onInsertAfter={(inserted) =>
                   setBlocks((blocks) => {
                     const next = [...blocks];
-                    next.splice(index + 1, 0, createBlock(type));
+                    next.splice(index + 1, 0, inserted);
                     return next;
                   })
                 }
               />
             ))}
-            <AddBlockMenu onAdd={(type) => setBlocks((blocks) => [...blocks, createBlock(type)])} />
+            <AddBlockMenu onAdd={(added) => setBlocks((blocks) => [...blocks, added])} />
           </section>
         </div>
 
         {preview ? (
           <aside
             aria-label="Live-Vorschau"
+            // Scrollbarer Bereich muss per Tastatur erreichbar sein (WCAG 2.1.1).
+            tabIndex={0}
             className="min-w-0 border-2 border-border-default bg-surface p-6 xl:sticky xl:top-36 xl:max-h-[calc(100dvh-10rem)] xl:overflow-y-auto"
           >
             <Meta>Vorschau</Meta>
@@ -441,7 +443,7 @@ function StructuredField({
       <label htmlFor={id} className="text-[13px] font-medium">
         {field.label}
         {field.required ? (
-          <span className="ml-1 text-accent" title="Pflichtfeld zum Abschließen">
+          <span className="ml-1 text-accent-text" title="Pflichtfeld zum Abschließen">
             *
           </span>
         ) : null}

@@ -170,7 +170,14 @@ async function assertMediaOwned(db: Db, actor: Actor, content: ContentDocument):
   return rows.length === ids.length;
 }
 
-export async function saveReport(db: Db, actor: Actor, reportId: string, rawInput: unknown): Promise<SaveResult> {
+export async function saveReport(
+  db: Db,
+  actor: Actor,
+  reportId: string,
+  rawInput: unknown,
+  /** `ai_accepted`: übernommene KI-Vorschläge – sichert den vorherigen Stand UND den neuen als Version. */
+  options: { versionReason?: "ai_accepted" } = {},
+): Promise<SaveResult> {
   const report = await getReport(db, actor, reportId);
   assertCan(actor, "report:update", { ownerId: report.ownerId });
 
@@ -250,6 +257,28 @@ export async function saveReport(db: Db, actor: Actor, reportId: string, rawInpu
       .where(eq(schema.reportVersions.reportId, reportId))
       .orderBy(desc(schema.reportVersions.versionNo))
       .limit(1);
+    if (options.versionReason === "ai_accepted") {
+      const base = last?.versionNo ?? 0;
+      await tx.insert(schema.reportVersions).values([
+        {
+          reportId,
+          versionNo: base + 1,
+          title: report.title,
+          structuredFields: report.structuredFields,
+          content: report.content,
+          reason: "checkpoint",
+        },
+        {
+          reportId,
+          versionNo: base + 2,
+          title: input.title,
+          structuredFields: fields.data,
+          content: input.content,
+          reason: "ai_accepted",
+        },
+      ]);
+      return { ok: true as const, revision: updated[0].revision, status, savedAt: updated[0].updatedAt, reopened };
+    }
     const due = !last || Date.now() - last.createdAt.getTime() >= CHECKPOINT_INTERVAL_MS;
     if (input.manual || due) {
       await tx.insert(schema.reportVersions).values({

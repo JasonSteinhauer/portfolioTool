@@ -17,7 +17,8 @@ function richTextNodeText(node: RichTextBlockNode): string[] {
   return node.content.flatMap((item) => item.content.flatMap(richTextNodeText));
 }
 
-function blockText(block: Block): string[] {
+/** Reiner Text eines Blocks (Teile in Lesereihenfolge). */
+export function blockText(block: Block): string[] {
   switch (block.type) {
     case "richText":
       return block.doc.content.flatMap(richTextNodeText);

@@ -1,4 +1,4 @@
-import type { ContentDocument } from "@/content/blocks/schema";
+import type { Block, ContentDocument } from "@/content/blocks/schema";
 import { extractPlainText } from "@/content/blocks/utils";
 import type { FieldDefinition } from "@/modules/reports/report-types";
 import { newComponentId, PAGE_SCHEMA_VERSION, type PageComponent, type PageConfig } from "./schema";
@@ -82,6 +82,18 @@ export function pageConfigFromReport(report: ReportLike): PageConfig {
       code: code.code.slice(0, 20_000),
       caption: "",
       sourceBlockIds: [code.id],
+    });
+  }
+
+  // Bilder: alle Bild-Blöcke (Screenshots) in Report-Reihenfolge.
+  const images = report.content.blocks.filter((b): b is Extract<Block, { type: "image" }> => b.type === "image");
+  if (images.length > 0) {
+    components.push({
+      id: newComponentId(),
+      type: "gallery",
+      heading: "Bilder",
+      items: images.slice(0, 12).map((b) => ({ mediaId: b.mediaId, alt: b.alt, caption: b.caption ?? "" })),
+      sourceBlockIds: images.map((b) => b.id),
     });
   }
 

@@ -20,6 +20,7 @@ export const PAGE_COMPONENT_TYPES = [
   "projectOverview",
   "resultHighlights",
   "codeShowcase",
+  "gallery",
   "insights",
 ] as const;
 export type PageComponentType = (typeof PAGE_COMPONENT_TYPES)[number];
@@ -64,6 +65,16 @@ export const pageComponentSchema = z.discriminatedUnion("type", [
       filename: text(200).optional(),
       code: z.string().max(20_000),
       caption: text(400),
+      sourceBlockIds,
+    })
+    .strict(),
+  z
+    .object({
+      id: componentId,
+      type: z.literal("gallery"),
+      heading: text(120),
+      /** Im Entwurf: Mediathek-IDs. Im freigegebenen Snapshot: IDs der eingefrorenen Kopien. */
+      items: z.array(z.object({ mediaId: z.uuid(), alt: text(300), caption: text(500) }).strict()).max(12),
       sourceBlockIds,
     })
     .strict(),
@@ -135,6 +146,8 @@ export function emptyComponent(type: PageComponentType): PageComponent {
       return { id, type, heading: "Ergebnisse", items: [] };
     case "codeShowcase":
       return { id, type, heading: "Code", language: "text", code: "", caption: "" };
+    case "gallery":
+      return { id, type, heading: "Bilder", items: [] };
     case "insights":
       return { id, type, heading: "Erkenntnisse", items: [] };
   }

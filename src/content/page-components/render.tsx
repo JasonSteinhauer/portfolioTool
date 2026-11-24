@@ -42,7 +42,18 @@ function Paragraphs({ text }: { text: string }) {
   );
 }
 
-export function PageComponentView({ component }: { component: PageComponent }) {
+/** Bild-URL je Kontext: Workspace-Vorschau (`/api/media/…`) oder freigegebene Ansicht (`/p/m/…`). */
+export type MediaUrlBuilder = (mediaId: string) => string;
+export const workspaceMediaUrl: MediaUrlBuilder = (id) => `/api/media/${id}`;
+export const viewerMediaUrl: MediaUrlBuilder = (id) => `/p/m/${id}`;
+
+export function PageComponentView({
+  component,
+  mediaUrl = workspaceMediaUrl,
+}: {
+  component: PageComponent;
+  mediaUrl?: MediaUrlBuilder;
+}) {
   switch (component.type) {
     case "hero":
       return (
@@ -94,7 +105,7 @@ export function PageComponentView({ component }: { component: PageComponent }) {
           <ul className="grid gap-4 md:grid-cols-2">
             {component.items.map((item, i) => (
               <li key={i} className="border-2 border-border-default bg-surface p-6 shadow-card">
-                <span className="font-mono text-xs text-accent">{String(i + 1).padStart(2, "0")}</span>
+                <span className="font-mono text-xs text-accent-text">{String(i + 1).padStart(2, "0")}</span>
                 <p className="mt-2 font-semibold">{item.title}</p>
                 {item.text ? <p className="mt-2 whitespace-pre-line text-sm text-text-secondary">{item.text}</p> : null}
               </li>
@@ -117,6 +128,26 @@ export function PageComponentView({ component }: { component: PageComponent }) {
           {component.caption ? <p className="text-sm text-text-secondary">{component.caption}</p> : null}
         </Section>
       );
+    case "gallery":
+      if (component.items.length === 0) return null;
+      return (
+        <Section heading={component.heading} id={component.id}>
+          <div className={component.items.length === 1 ? "flex flex-col gap-6" : "grid gap-6 md:grid-cols-2"}>
+            {component.items.map((item, i) => (
+              <figure key={`${item.mediaId}-${i}`} className="flex flex-col gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Dateien kommen aus eigener, geprüfter Route */}
+                <img
+                  src={mediaUrl(item.mediaId)}
+                  alt={item.alt}
+                  loading="lazy"
+                  className="w-full border-2 border-border-default bg-bg"
+                />
+                {item.caption ? <figcaption className="text-sm text-text-secondary">{item.caption}</figcaption> : null}
+              </figure>
+            ))}
+          </div>
+        </Section>
+      );
     case "insights":
       return (
         <Section heading={component.heading} id={component.id}>
@@ -136,11 +167,11 @@ export function PageComponentView({ component }: { component: PageComponent }) {
   }
 }
 
-export function PageView({ config }: { config: PageConfig }) {
+export function PageView({ config, mediaUrl }: { config: PageConfig; mediaUrl?: MediaUrlBuilder }) {
   return (
     <div className="flex flex-col gap-10">
       {config.components.map((component) => (
-        <PageComponentView key={component.id} component={component} />
+        <PageComponentView key={component.id} component={component} mediaUrl={mediaUrl} />
       ))}
     </div>
   );

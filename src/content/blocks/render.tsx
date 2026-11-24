@@ -48,7 +48,7 @@ function renderRichNode(node: RichTextBlockNode, key: number): ReactNode {
       return <p key={key}>{(node.content ?? []).map(renderInline)}</p>;
     case "bulletList":
       return (
-        <ul key={key} className="list-disc space-y-1 pl-6 marker:text-accent">
+        <ul key={key} className="list-disc space-y-1 pl-6 marker:text-accent-text">
           {node.content.map((item, i) => (
             <li key={i}>{item.content.map(renderRichNode)}</li>
           ))}
@@ -128,11 +128,29 @@ function renderBlock(block: Block): ReactNode {
         </aside>
       );
     case "image":
+      return (
+        <figure className="flex flex-col gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element -- private Datei, kein Bild-Optimizer */}
+          <img
+            src={`/api/media/${block.mediaId}`}
+            alt={block.alt}
+            loading="lazy"
+            className="max-h-[36rem] w-auto max-w-full border-2 border-border-default bg-bg"
+          />
+          {block.caption ? <figcaption className="text-sm text-text-secondary">{block.caption}</figcaption> : null}
+        </figure>
+      );
     case "attachment":
       return (
-        <div className="border-2 border-dashed border-border-default p-4 font-mono text-xs text-text-secondary">
-          {block.type === "image" ? `Bild: ${block.alt || "ohne Beschreibung"}` : `Anhang: ${block.label ?? "Datei"}`}
-        </div>
+        <a
+          href={`/api/media/${block.mediaId}?download`}
+          className="inline-flex items-center gap-3 self-start border-2 border-border-default bg-surface px-4 py-3 hover:border-border-strong"
+        >
+          <span aria-hidden="true" className="font-mono text-xs text-accent-text">
+            ↓
+          </span>
+          <span className="font-medium">{block.label || "Anhang herunterladen"}</span>
+        </a>
       );
   }
 }

@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getDb } from "@/lib/db/client";
+import { listRecentJobs, monthlyUsage } from "@/modules/ai/gateway";
+import { aiRuntime } from "@/modules/ai/runtime";
 import { listOwnSessions } from "@/modules/auth/service";
 import { requireOwner } from "@/modules/auth/session";
 import { Button } from "@/ui/button";
@@ -45,6 +48,16 @@ function describeAgent(userAgent: string | null): string {
 export default async function SettingsPage() {
   const { actor, user, sessionId } = await requireOwner();
   const sessions = await listOwnSessions(actor, sessionId);
+  const ai = aiRuntime();
+  const [usage, jobs] = await Promise.all([
+    monthlyUsage(getDb(), actor, ai.config),
+    listRecentJobs(getDb(), actor, 10),
+  ]);
+  const usd = (micro: number) =>
+    new Intl.NumberFormat("de-DE", { style: "currency", currency: "USD", maximumFractionDigits: 4 }).format(
+      micro / 1_000_000,
+    );
+  const percent = Math.min(100, Math.round((usage.spentMicroUsd / usage.budgetMicroUsd) * 100));
 
   return (
     <>
@@ -125,6 +138,69 @@ export default async function SettingsPage() {
               </li>
             ))}
           </ul>
+        </Card>
+
+        <Card className="flex flex-col gap-4 p-6 lg:col-span-2" data-testid="ai-usage-card">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">KI-Nutzung</h2>
+            <Badge tone={ai.provider ? "accent" : undefined}>
+              {ai.provider ? `${ai.provider.name} · ${ai.provider.model}` : "nicht eingerichtet"}
+            </Badge>
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-sm">
+              Diesen Monat: <strong>{usd(usage.spentMicroUsd)}</strong> von {usd(usage.budgetMicroUsd)} Budget ·{" "}
+              {usage.jobs} Aufträge
+            </p>
+            {/* Natives <progress>: kein Inline-Style nötig (strikte CSP). */}
+            <progress
+              aria-label="Verbrauchtes KI-Budget"
+              value={percent}
+              max={100}
+              className="h-2 w-full max-w-md accent-[var(--accent)]"
+            >
+              {percent} %
+            </progress>
+            <p className="text-xs text-text-secondary">
+              Ist das Budget erreicht, werden keine KI-Aufträge mehr ausgeführt. Gespeichert werden nur Zahlen und
+              Verweise – keine Inhalte.
+            </p>
+          </div>
+          {jobs.length > 0 ? (
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Letzte KI-Aufträge</caption>
+              <thead className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-secondary">
+                <tr>
+                  <th className="py-1 font-normal">Zeit</th>
+                  <th className="py-1 font-normal">Art</th>
+                  <th className="py-1 font-normal">Status</th>
+                  <th className="py-1 text-right font-normal">Kosten</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map((job) => (
+                  <tr key={job.id} className="border-t border-line-subtle">
+                    <td className="py-1.5">{dateFormat.format(job.createdAt)}</td>
+                    <td className="py-1.5">
+                      {job.kind === "report.language"
+                        ? "Sprachvorschläge"
+                        : job.kind === "page.compose"
+                          ? "Seitenentwurf"
+                          : job.kind}
+                    </td>
+                    <td className="py-1.5">
+                      {job.status === "succeeded"
+                        ? "erfolgreich"
+                        : job.status === "failed"
+                          ? `fehlgeschlagen${job.error ? ` – ${job.error}` : ""}`
+                          : job.status}
+                    </td>
+                    <td className="py-1.5 text-right font-mono text-xs">{usd(job.costMicroUsd ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </Card>
       </div>
     </>

@@ -22,13 +22,11 @@ export function WorkspaceShell({
       </a>
       <header className="sticky top-0 z-40 border-b-2 border-border-default bg-bg/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-content flex-wrap items-center gap-x-6 px-6">
-          <Link
-            href="/app"
-            className="flex shrink-0 items-center gap-2 py-3"
-            aria-label="Development Portfolio – Dashboard"
-          >
+          <Link href="/app" className="flex shrink-0 items-center gap-2 py-3">
             <span aria-hidden="true" className="block size-3 bg-accent" />
+            {/* Sichtbarer Text ist Teil des zugänglichen Namens (WCAG 2.5.3). */}
             <span className="font-heading text-[15px] font-semibold tracking-tight">dev.portfolio</span>
+            <span className="sr-only"> – Dashboard</span>
           </Link>
           {/* Mobil: eigene Zeile in voller Breite (scrollbar); ab xl: zwischen Marke und Aktion. */}
           <div className="order-last -mx-6 w-[calc(100%+3rem)] min-w-0 border-t border-line-subtle px-3 xl:order-none xl:mx-0 xl:w-auto xl:flex-1 xl:self-end xl:border-t-0 xl:px-0">
