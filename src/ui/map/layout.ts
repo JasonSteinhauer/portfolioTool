@@ -48,11 +48,17 @@ export type Layout = {
   projectRows: number;
 };
 
-function edgePath(a: LayoutNode, b: LayoutNode): string {
+function edgePath(a: LayoutNode, b: LayoutNode, kind: LayoutEdge["kind"] = "link"): string {
   const x1 = a.x + NODE_W / 2;
   const y1 = a.y + NODE_H;
   const x2 = b.x + NODE_W / 2;
   const y2 = b.y;
+  // Projekt-Kanten über mehrere Zeilen: sofort in der ersten Lücke abbiegen, dann senkrecht in der
+  // eigenen Spalte nach unten – so laufen sie nicht durch Unterprojekte anderer Spalten.
+  if (kind === "project" && y2 - y1 > ROW_GAP + 1) {
+    const g = ROW_GAP;
+    return `M${x1} ${y1} C${x1} ${y1 + g / 2},${x2} ${y1 + g / 2},${x2} ${y1 + g} L${x2} ${y2}`;
+  }
   const mid = y1 + Math.min(ROW_GAP, (y2 - y1) / 2);
   return `M${x1} ${y1} C${x1} ${mid},${x2} ${y2 - (mid - y1)},${x2} ${y2}`;
 }
@@ -121,7 +127,6 @@ export function layoutMap(data: MapData): Layout {
   const groupOf = (r: MapData["reports"][number]) =>
     r.projectId && projectIds.has(r.projectId) ? r.projectId : external.has(r.id) ? "__ext__" : NO_PROJECT;
   const hasUnassigned = data.reports.some((r) => groupOf(r) === NO_PROJECT);
-  const groupIndex = new Map([...preorder, NO_PROJECT, "__ext__"].map((g, i) => [g, i]));
 
   // --- Knoten anlegen ----------------------------------------------------------------
   const nodes = new Map<string, LayoutNode>();
@@ -200,64 +205,97 @@ export function layoutMap(data: MapData): Layout {
     (outgoing.get(e.source) ?? outgoing.set(e.source, []).get(e.source)!).push(e.target);
   }
 
-  // --- Positionen ----------------------------------------------------------------------
+  // --- Positionen: jedes Projekt bekommt einen eigenen Spaltenbereich -------------------
+  // Innerhalb eines Projekts: zuerst die Unterprojekte (je eigener Bereich), daneben die eigenen
+  // Reports. So steht ein Report nie unter einem Unterprojekt, zu dem er nicht gehört.
   const step = NODE_W + GAP_X;
-  const place = (layer: LayoutNode[], desired: (n: LayoutNode) => number) => {
-    let next = MARGIN_X;
-    for (const n of layer) {
-      n.x = Math.max(desired(n), next);
-      next = n.x + step;
-    }
-  };
-  const meanOf = (ids: string[] | undefined) => {
-    const xs = (ids ?? []).map((id) => nodes.get(id)?.x).filter((x): x is number => x !== undefined);
-    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Number.NaN;
-  };
-  const centerOverChildren = (n: LayoutNode) => {
-    const xs = (outgoing.get(n.id) ?? []).map((id) => nodes.get(id)!.x);
-    return xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : Number.NaN;
-  };
-  const groupRank = (n: LayoutNode) =>
-    n.kind === "report" ? (groupIndex.get(groupOf(reportById.get(n.id)!)) ?? 99) : (groupIndex.get(n.id) ?? 99);
+  const colX = (col: number) => MARGIN_X + col * step;
   const reportLayers = byLayer.slice(projectRows);
-  const projectLayers = byLayer.slice(0, projectRows);
+  const reportsOfGroup = (group: string) =>
+    reportLayers.map((layer) => layer.filter((n) => groupOf(reportById.get(n.id)!) === group));
 
-  // 1. Reports dicht packen: nach Projekt-Baum, dann Eltern-Mitte, dann Titel.
-  for (const layer of reportLayers) {
-    const m = (n: LayoutNode) => {
-      const v = meanOf(incoming.get(n.id));
-      return Number.isNaN(v) ? Number.POSITIVE_INFINITY : v;
-    };
-    layer.sort((a, b) => groupRank(a) - groupRank(b) || m(a) - m(b) || a.title.localeCompare(b.title, "de"));
-    place(layer, () => MARGIN_X);
-  }
-  // 2. Projekte von unten nach oben über ihre Kinder ziehen (Reihenfolge = Baum).
-  const placeProjects = () => {
-    for (let i = projectLayers.length - 1; i >= 0; i--) {
-      const layer = projectLayers[i];
-      layer.sort((a, b) => groupRank(a) - groupRank(b));
-      place(layer, (n) => {
-        const c = centerOverChildren(n);
-        return Number.isNaN(c) ? MARGIN_X : c;
-      });
+  // Reports einer Gruppe Ebene für Ebene in ihre Spalten legen – möglichst unter ihre Eltern.
+  const placeGroupReports = (group: string, firstCol: number): number => {
+    const layers = reportsOfGroup(group);
+    const width = Math.max(0, ...layers.map((l) => l.length));
+    for (const layer of layers) {
+      const desired = (n: LayoutNode) => {
+        const xs = (incoming.get(n.id) ?? [])
+          .map((id) => nodes.get(id))
+          .filter((p): p is LayoutNode => Boolean(p && p.kind === "report" && groupOf(reportById.get(p.id)!) === group))
+          .map((p) => p.x);
+        return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Number.POSITIVE_INFINITY;
+      };
+      layer.sort((a, b) => desired(a) - desired(b) || a.title.localeCompare(b.title, "de"));
+      // Freie Spalten im Gruppenbereich; jeder Report nimmt die nächstliegende freie Spalte zu seinem Wunsch.
+      const free = Array.from({ length: width }, (_, i) => firstCol + i);
+      for (const n of layer) {
+        const want = desired(n);
+        let best = 0;
+        if (Number.isFinite(want)) {
+          let dist = Number.POSITIVE_INFINITY;
+          free.forEach((c, i) => {
+            const d = Math.abs(colX(c) - want);
+            if (d < dist) {
+              dist = d;
+              best = i;
+            }
+          });
+        }
+        n.x = colX(free.splice(best, 1)[0]);
+      }
     }
+    return width;
   };
-  placeProjects();
-  // 3. Reports unter ihre Eltern ziehen (ohne Überlappung), dann Projekte erneut zentrieren.
-  for (const layer of reportLayers) {
-    place(layer, (n) => {
-      const v = meanOf(incoming.get(n.id));
-      return Number.isNaN(v) ? MARGIN_X : v;
-    });
+
+  const childProjects = (parent: string | null) => preorder.filter((id) => parentOf(id) === parent);
+  const placeProject = (id: string, firstCol: number): number => {
+    let col = firstCol;
+    for (const child of childProjects(id)) col = placeProject(child, col);
+    col += placeGroupReports(id, col);
+    if (col === firstCol) col += 1; // leeres Projekt: eine Spalte für sich selbst
+    nodes.get(id)!.x = MARGIN_X + ((firstCol + col - 1) / 2) * step;
+    return col;
+  };
+
+  let col = 0;
+  const placed = new Set<string>();
+  const placeRoot = (id: string) => {
+    col = placeProject(id, col);
+    for (const p of [id, ...preorder.filter((x) => parentOf(x) === id)]) placed.add(p);
+  };
+  for (const root of childProjects(null)) placeRoot(root);
+  // Projekte aus fehlerhaften Kreisen: einzeln anhängen.
+  for (const id of preorder) {
+    if (!placed.has(id) && parentOf(id) !== null && !childProjects(null).includes(id)) {
+      const reachableFromRoot = (() => {
+        let cur: string | null = id;
+        const seen = new Set<string>();
+        while (cur && !seen.has(cur)) {
+          seen.add(cur);
+          cur = parentOf(cur);
+        }
+        return cur === null;
+      })();
+      if (!reachableFromRoot) {
+        nodes.get(id)!.x = colX(col);
+        col += 1 + placeGroupReports(id, col + 1);
+      }
+    }
   }
-  placeProjects();
+  if (hasUnassigned) {
+    const start = col;
+    col += Math.max(1, placeGroupReports(NO_PROJECT, col));
+    nodes.get(NO_PROJECT)!.x = MARGIN_X + ((start + col - 1) / 2) * step;
+  }
+  col += placeGroupReports("__ext__", col);
 
   const all = [...nodes.values()];
   const width = Math.max(...all.map((n) => n.x + NODE_W), MARGIN_X + NODE_W) + MARGIN_X / 2;
   const height = MARGIN_Y * 2 + (byLayer.length - 1) * (NODE_H + ROW_GAP) + NODE_H;
   const edges: LayoutEdge[] = edgeList.map((e) => ({
     ...e,
-    path: edgePath(nodes.get(e.source)!, nodes.get(e.target)!),
+    path: edgePath(nodes.get(e.source)!, nodes.get(e.target)!, e.kind),
   }));
   return {
     nodes: all,

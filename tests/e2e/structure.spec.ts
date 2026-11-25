@@ -179,6 +179,38 @@ test("Karte zeigt die Hierarchie von oben nach unten", async () => {
   await audit(owner, "Projekte");
 });
 
+test("Karte: Report per Drag & Drop (bzw. ohne Ziehen) in ein Unterprojekt verschieben", async ({}, testInfo) => {
+  await owner.goto("/app/projects/map");
+  const map = owner.getByTestId("report-map");
+  await expect(map).toHaveAttribute("data-ready", "true");
+  const report = map.locator(`[data-node-id="${reports.reflect}"]`);
+  const target = map.getByRole("link", { name: /Teilprojekt A/ });
+  await expect(report).toBeVisible();
+
+  if (testInfo.project.name === "desktop") {
+    // Quelle und Ziel gleichzeitig sichtbar (die Karte scrollt sonst innerhalb ihres Rahmens).
+    await owner.setViewportSize({ width: 1440, height: 1600 });
+    await report.dragTo(target);
+    await expect(owner.getByTestId("map-status")).toContainText(
+      "„Reflexion zur Analyse“ nach „Teilprojekt A“ verschoben.",
+    );
+  } else {
+    // Ohne Ziehen (Touch/Tastatur): Knoten wählen, im Seitenfeld verschieben.
+    await report.click();
+    const form = owner.getByTestId("map-move-form");
+    await form.getByLabel("Verschieben in Projekt").selectOption({ label: "— Teilprojekt A" });
+    await form.getByRole("button", { name: "Verschieben" }).click();
+    await expect(form.getByRole("status")).toContainText("verschoben");
+  }
+  await audit(owner, "Karte nach Verschieben");
+  if (testInfo.project.name === "desktop") await owner.setViewportSize({ width: 1280, height: 720 });
+
+  await owner.goto("/app/projects");
+  await expect(owner.getByTestId("project-list").locator("li").filter({ hasText: "Teilprojekt A" })).toContainText(
+    "1 Report",
+  );
+});
+
 test("Entwicklung: Kompetenzen mit Belegen und Timeline", async () => {
   await owner.goto("/app/development");
   await audit(owner, "Entwicklung leer");

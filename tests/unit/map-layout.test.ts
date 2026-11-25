@@ -117,3 +117,38 @@ describe("Karten-Layout mit Unterprojekten", () => {
     expect(layout.nodes).toHaveLength(2);
   });
 });
+
+describe("Karten-Layout: Reports neben fremden Unterprojekten", () => {
+  it("stellt einen Report des Projekts neben – nicht unter – ein Unterprojekt", () => {
+    const layout = layoutMap({
+      projects: [
+        { id: "soc", title: "Arbeit im SOC", status: "active", parentProjectId: null },
+        { id: "siem", title: "SIEM lernen", status: "active", parentProjectId: "soc" },
+      ],
+      reports: [report("taetigkeit", "soc"), report("siem-1", "siem")],
+      links: [],
+      externalIds: [],
+    });
+    const node = (id: string) => layout.nodes.find((n) => n.id === id)!;
+    // Der Report des Unterprojekts steht unter dem Unterprojekt …
+    expect(node("siem-1").x).toBe(node("siem").x);
+    // … der Report des Hauptprojekts daneben.
+    expect(Math.abs(node("taetigkeit").x - node("siem").x)).toBeGreaterThanOrEqual(NODE_W);
+    // Das Hauptprojekt steht mittig über beidem.
+    expect(node("soc").x).toBeCloseTo((node("taetigkeit").x + node("siem").x) / 2);
+  });
+
+  it("reserviert auch für leere Unterprojekte eine eigene Spalte", () => {
+    const layout = layoutMap({
+      projects: [
+        { id: "soc", title: "Arbeit im SOC", status: "active", parentProjectId: null },
+        { id: "siem", title: "SIEM lernen", status: "active", parentProjectId: "soc" },
+      ],
+      reports: [report("taetigkeit", "soc")],
+      links: [],
+      externalIds: [],
+    });
+    const node = (id: string) => layout.nodes.find((n) => n.id === id)!;
+    expect(Math.abs(node("taetigkeit").x - node("siem").x)).toBeGreaterThanOrEqual(NODE_W);
+  });
+});

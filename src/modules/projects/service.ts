@@ -316,6 +316,30 @@ export async function deleteProject(db: Db, actor: Actor, projectId: string) {
   });
 }
 
+/** Hängt ein Projekt unter ein anderes (`null` = oberste Ebene). Prüft Kreise und Tiefe. */
+export async function setProjectParent(
+  db: Db,
+  actor: Actor,
+  projectId: string,
+  parentId: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const project = await getProject(db, actor, projectId);
+  assertCan(actor, "project:update", { ownerId: project.ownerId });
+  if (parentId) await getProject(db, actor, parentId);
+  if (project.parentProjectId === parentId) return { ok: true };
+  const problem = parentError(await ownTree(db, actor.userId), project.id, parentId);
+  if (problem) return { ok: false, error: problem };
+  await db
+    .update(schema.projects)
+    .set({
+      parentProjectId: parentId,
+      sortOrder: await nextSortOrder(db, actor.userId, parentId),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.projects.id, project.id));
+  return { ok: true };
+}
+
 /** Verschiebt ein Projekt unter seinen Geschwistern nach oben (-1) oder unten (+1). */
 export async function moveProject(db: Db, actor: Actor, projectId: string, dir: -1 | 1) {
   const project = await getProject(db, actor, projectId);
