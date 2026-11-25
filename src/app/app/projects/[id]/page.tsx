@@ -196,9 +196,13 @@ export default async function ProjectPage({
               <>
                 <ReportMap
                   layout={layout}
-                  hrefFor={(n) =>
-                    n.kind === "report" ? `/app/reports/${n.id}` : n.virtual ? self : `/app/projects/${n.id}`
-                  }
+                  draggable
+                  hrefs={Object.fromEntries(
+                    layout.nodes.map((n) => [
+                      n.id,
+                      n.kind === "report" ? `/app/reports/${n.id}` : n.virtual ? self : `/app/projects/${n.id}`,
+                    ]),
+                  )}
                 />
                 <MapLegend />
               </>

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { getMapData } from "@/modules/links/service";
-import { listProjects, toProjectTree } from "@/modules/projects/service";
+import { descendantIds, listProjects, toProjectTree } from "@/modules/projects/service";
+import { MoveForm } from "./move-form";
 import { Meta } from "@/ui/card";
 import { layoutMap, type LayoutNode } from "@/ui/map/layout";
 import { MapLegend, ReportMap } from "@/ui/map/report-map";
@@ -91,7 +92,12 @@ export default async function MapPage({
       ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="flex min-w-0 flex-col gap-3">
-            <ReportMap layout={layout} selectedId={selected?.id} hrefFor={hrefFor} />
+            <ReportMap
+              layout={layout}
+              selectedId={selected?.id}
+              draggable
+              hrefs={Object.fromEntries(layout.nodes.map((n) => [n.id, hrefFor(n)]))}
+            />
             <MapLegend />
             <details className="text-sm">
               <summary className="cursor-pointer text-text-secondary">Als Liste anzeigen</summary>
@@ -126,6 +132,26 @@ export default async function MapPage({
                 ) : (
                   <NodeList title="Direkt darunter" nodes={below} empty="– keine Reports –" href={nodeHref} />
                 )}
+                {!selected.virtual ? (
+                  <MoveForm
+                    key={selected.id}
+                    kind={selected.kind}
+                    nodeId={selected.id}
+                    title={selected.title}
+                    currentTargetId={
+                      selected.kind === "report"
+                        ? (data.reports.find((r) => r.id === selected.id)?.projectId ?? null)
+                        : (projects.find((p) => p.id === selected.id)?.parentProjectId ?? null)
+                    }
+                    options={
+                      selected.kind === "report"
+                        ? projects
+                        : projects.filter(
+                            (p) => p.id !== selected.id && !descendantIds(projects, selected.id).has(p.id),
+                          )
+                    }
+                  />
+                ) : null}
                 {nodeHref(selected) ? (
                   <Link
                     href={nodeHref(selected)!}

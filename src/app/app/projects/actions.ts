@@ -6,11 +6,14 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { addLink, removeLink } from "@/modules/links/service";
+import { ReportNotFoundError } from "@/modules/reports/service";
 import {
   assignReportToProject,
   createProject,
   deleteProject,
   moveProject,
+  ProjectNotFoundError,
+  setProjectParent,
   updateProject,
 } from "@/modules/projects/service";
 
@@ -108,4 +111,33 @@ export async function moveProjectAction(formData: FormData): Promise<void> {
   const dir = formData.get("dir") === "up" ? -1 : 1;
   await moveProject(getDb(), actor, id.parse(formData.get("projectId")), dir);
   revalidatePath("/app/projects", "layout");
+}
+
+export type MoveNodeState = { ok?: boolean; message?: string; error?: string };
+
+/**
+ * Verschieben auf der Karte (Drag & Drop oder Auswahl im Seitenfeld):
+ * Report → Projekt (leer = ohne Projekt), Projekt → Elternprojekt (leer = oberste Ebene).
+ */
+export async function moveNodeAction(_prev: MoveNodeState, formData: FormData): Promise<MoveNodeState> {
+  const { actor } = await requireOwner();
+  const kind = z.enum(["report", "project"]).parse(formData.get("kind"));
+  const nodeId = id.parse(formData.get("nodeId"));
+  const rawTarget = String(formData.get("targetId") ?? "");
+  const targetId = rawTarget === "" ? null : id.parse(rawTarget);
+  try {
+    if (kind === "report") {
+      await assignReportToProject(getDb(), actor, nodeId, targetId);
+    } else {
+      const result = await setProjectParent(getDb(), actor, nodeId, targetId);
+      if (!result.ok) return { error: result.error };
+    }
+  } catch (error) {
+    if (error instanceof ProjectNotFoundError) return { error: "Projekt nicht gefunden." };
+    if (error instanceof ReportNotFoundError) return { error: "Report nicht gefunden." };
+    throw error;
+  }
+  revalidatePath("/app/projects", "layout");
+  revalidatePath(`/app/reports/${nodeId}`);
+  return { ok: true, message: String(formData.get("doneMessage") ?? "Verschoben.").slice(0, 200) };
 }

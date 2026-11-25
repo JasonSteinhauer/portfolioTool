@@ -249,3 +249,30 @@ describe("Unterprojekte", () => {
     expect((await getProject(db, alice, leaf)).parentProjectId).toBe(top);
   });
 });
+
+describe("Verschieben (Karte)", () => {
+  it("hängt Projekte um und lehnt Kreise, zu tiefe Bäume und Fremdes ab", async () => {
+    const mod = await import("@/modules/projects/service");
+    const make = async (title: string, parentProjectId = "") => {
+      const r = await createProject(db, alice, project(title, { parentProjectId }));
+      if (!r.ok) throw new Error(JSON.stringify(r.fieldErrors));
+      return r.id;
+    };
+    const a = await make("DnD A");
+    const b = await make("DnD B");
+    const b1 = await make("DnD B1", b);
+    const b2 = await make("DnD B2", b1);
+
+    expect(await mod.setProjectParent(db, alice, a, b)).toEqual({ ok: true });
+    expect((await getProject(db, alice, a)).parentProjectId).toBe(b);
+    expect((await mod.setProjectParent(db, alice, b, b2)).ok).toBe(false); // Kreis
+    expect((await mod.setProjectParent(db, alice, b1, a)).ok).toBe(false); // B1+B2 unter A (Ebene 2) = 4 Ebenen
+    expect(await mod.setProjectParent(db, alice, a, null)).toEqual({ ok: true });
+    expect((await getProject(db, alice, a)).parentProjectId).toBeNull();
+
+    const foreign = await createProject(db, mallory, project("DnD fremd"));
+    if (!foreign.ok) throw new Error();
+    await expect(mod.setProjectParent(db, alice, a, foreign.id)).rejects.toBeInstanceOf(ProjectNotFoundError);
+    await expect(mod.setProjectParent(db, mallory, a, null)).rejects.toBeInstanceOf(ProjectNotFoundError);
+  });
+});
