@@ -80,7 +80,7 @@ const INSIGHT_LABELS = {
   warning: "Warnung",
 } as const;
 
-function renderBlock(block: Block): ReactNode {
+function renderBlock(block: Block, mediaUrl: (id: string) => string): ReactNode {
   switch (block.type) {
     case "richText":
       return <RichText doc={block.doc} />;
@@ -132,7 +132,7 @@ function renderBlock(block: Block): ReactNode {
         <figure className="flex flex-col gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- private Datei, kein Bild-Optimizer */}
           <img
-            src={`/api/media/${block.mediaId}`}
+            src={mediaUrl(block.mediaId)}
             alt={block.alt}
             loading="lazy"
             className="max-h-[36rem] w-auto max-w-full border-2 border-border-default bg-bg"
@@ -173,7 +173,16 @@ export function isRenderable(block: Block): boolean {
   }
 }
 
-export function DocumentView({ doc }: { doc: ContentDocument }) {
+const workspaceMedia = (id: string) => `/api/media/${id}`;
+
+export function DocumentView({
+  doc,
+  mediaUrl = workspaceMedia,
+}: {
+  doc: ContentDocument;
+  /** Bild-URL je Kontext (Workspace oder freigegebene Ansicht). */
+  mediaUrl?: (id: string) => string;
+}) {
   const blocks = doc.blocks.filter(isRenderable);
   if (blocks.length === 0) {
     return <p className="text-text-secondary">Noch kein Inhalt.</p>;
@@ -182,7 +191,7 @@ export function DocumentView({ doc }: { doc: ContentDocument }) {
     <div className="flex flex-col gap-5">
       {blocks.map((block) => (
         <section key={block.id} data-block-id={block.id}>
-          {renderBlock(block)}
+          {renderBlock(block, mediaUrl)}
         </section>
       ))}
     </div>

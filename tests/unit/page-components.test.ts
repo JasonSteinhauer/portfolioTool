@@ -104,3 +104,31 @@ describe("Slugs und Tokens", () => {
     expect(hashToken(token)).not.toContain(token);
   });
 });
+
+describe("Vollständiger Bericht aus Report", () => {
+  it("übernimmt Eckdaten, Abschnitte und Blöcke – ohne Anhänge", async () => {
+    const { fullReportFromReport } = await import("@/content/page-components/from-report");
+    const full = fullReportFromReport({
+      title: "T",
+      typeName: "Projektbericht",
+      fieldSchema: [
+        { key: "role", label: "Rolle", type: "text", required: false },
+        { key: "goal", label: "Ziel", type: "textarea", required: false },
+        { key: "tools", label: "Werkzeuge", type: "tags", required: false },
+      ],
+      structuredFields: { role: "Entwicklung", goal: "Ziel A", tools: ["TS", "SQL"] },
+      content: {
+        schemaVersion: 1,
+        blocks: [
+          { id: "blk_code00000001", type: "code", language: "typescript", code: "1" },
+          { id: "blk_attach000001", type: "attachment", mediaId: "00000000-0000-4000-8000-000000000001", label: "x" },
+          { id: "blk_heading00001", type: "heading", level: 2, text: "" },
+        ],
+      },
+    });
+    expect(full.facts).toEqual([{ label: "Rolle", value: "Entwicklung" }]);
+    expect(full.sections).toEqual([{ title: "Ziel", text: "Ziel A" }]);
+    expect(full.tags).toEqual(["TS", "SQL"]);
+    expect(full.blocks.map((b) => b.type)).toEqual(["code"]);
+  });
+});

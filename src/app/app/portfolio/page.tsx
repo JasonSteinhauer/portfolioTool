@@ -49,6 +49,8 @@ export default async function PortfolioPage() {
     listFavoriteReports(db, actor),
   ]);
   const reportsWithoutPage = favoriteReports.filter((r) => !r.pageId);
+  // Favoriten als Vorauswahl: freigegebene Favoriten, die noch nicht im Showcase sind.
+  const suggestions = pages.filter((p) => p.favorite && p.publishedVersion && !p.inShowcase);
 
   return (
     <>
@@ -57,6 +59,12 @@ export default async function PortfolioPage() {
         meta={<Meta>Präsentieren</Meta>}
         actions={
           <>
+            <Link
+              href="/vorschau"
+              className="inline-flex h-10 items-center border-2 border-border-strong px-4 text-sm hover:bg-hover-surface"
+            >
+              Als Betrachter ansehen
+            </Link>
             <Link
               href="/app/portfolio/profile"
               className="inline-flex h-10 items-center border-2 border-border-strong px-4 text-sm hover:bg-hover-surface"
@@ -147,6 +155,28 @@ export default async function PortfolioPage() {
               Diese Auswahl sehen Personen mit einem Showcase-Link – in dieser Reihenfolge. Nur freigegebene Seiten
               erscheinen.
             </p>
+            {suggestions.length > 0 ? (
+              <div className="flex flex-col gap-2 border-l-2 border-accent pl-3" data-testid="showcase-suggestions">
+                <Meta>Vorschläge aus deinen Favoriten</Meta>
+                <ul className="flex flex-col gap-1">
+                  {suggestions.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="min-w-0 truncate">
+                        <span aria-hidden="true" className="mr-1 text-accent-text">
+                          ★
+                        </span>
+                        {p.title}
+                      </span>
+                      <ShowcaseButton
+                        pageId={p.id}
+                        op="add"
+                        label={`Vorschlag ${p.title} in den Showcase übernehmen`}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
             {showcase.length === 0 ? (
               <p className="text-sm text-text-secondary">Noch leer.</p>
             ) : (

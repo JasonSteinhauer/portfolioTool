@@ -112,6 +112,18 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                 Portfolio-Seite
               </Button>
             </form>
+            <form action={createPageFromReportAction}>
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="mode" value="full" />
+              <Button
+                type="submit"
+                variant="secondary"
+                size="sm"
+                title="Seite mit dem kompletten Report – gestaltet für Empfänger"
+              >
+                Als Bericht teilen
+              </Button>
+            </form>
           </div>
         }
       />

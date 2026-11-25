@@ -254,3 +254,20 @@ export async function getViewerMedia(
   if (!pages.some((p) => p.pageId === row.pageId)) return null;
   return { storageKey: row.storageKey, mimeType: row.mimeType };
 }
+
+/** Eingefrorene Bilddatei einer EIGENEN freigegebenen Seite – für die Betrachter-Vorschau des Owners. */
+export async function getOwnerPublishedMedia(
+  db: Db,
+  actor: Actor,
+  mediaId: string,
+): Promise<{ storageKey: string; mimeType: string } | null> {
+  assertCan(actor, "portfolio_page:read");
+  if (!z.uuid().safeParse(mediaId).success) return null;
+  const [row] = await db
+    .select({ storageKey: schema.publishedMedia.storageKey, mimeType: schema.publishedMedia.mimeType })
+    .from(schema.publishedMedia)
+    .innerJoin(schema.publishedSnapshots, eq(schema.publishedSnapshots.id, schema.publishedMedia.snapshotId))
+    .innerJoin(schema.portfolioPages, eq(schema.portfolioPages.id, schema.publishedSnapshots.portfolioPageId))
+    .where(and(eq(schema.publishedMedia.id, mediaId), eq(schema.portfolioPages.ownerId, actor.userId)));
+  return row ?? null;
+}

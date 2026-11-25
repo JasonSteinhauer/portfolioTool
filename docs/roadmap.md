@@ -24,6 +24,8 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
 - [x] **9 Struktur:** Projekte (anlegen, zuordnen, löschen), Report-Verknüpfungen ohne Kreise, Karte der
       Hierarchie (Projekte → Reports, von oben nach unten), Entwicklung (Fachgebiete, Kompetenzen mit Belegen,
       Timeline), KI-Assistent (offene Vorschläge, Budget)
+- [x] **10 Präsentation:** Stil „Terminal“ für Viewer, Betrachter-Vorschau (`/vorschau`), vollständige Berichte
+      teilen, verknüpfte Berichte im Viewer, Favoriten als Showcase-Vorschläge, KI-Rückfragen vor der KI-Fassung
 
 ## Danach
 

@@ -33,7 +33,7 @@ function formatShort(field: FieldDefinition, value: unknown): string {
 }
 
 /** Mehrzeilige Stichpunkte werden zur Liste; ein einzelner Absatz bleibt Fließtext. */
-function LongText({ text }: { text: string }) {
+export function LongText({ text }: { text: string }) {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*[-*•]\s*/, "").trim())

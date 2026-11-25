@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { decideComposition, requestComposition } from "@/modules/ai/compose";
 import { AiBlockedError, AiJobFailedError, AiUnavailableError } from "@/modules/ai/gateway";
-import { decideLanguageProposals, requestLanguageSuggestions } from "@/modules/ai/language";
+import { decideLanguageProposals, requestLanguageSuggestions, type QuestionAnswer } from "@/modules/ai/language";
 import { aiRuntime } from "@/modules/ai/runtime";
 import { requireOwner } from "@/modules/auth/session";
 
@@ -102,4 +102,33 @@ export async function decideCompositionAction(_prev: AiActionState, formData: Fo
   }
   revalidatePath(`/app/portfolio/${pageId}`);
   redirect(`/app/portfolio/${pageId}`);
+}
+
+/** Antworten auf Rückfragen der KI senden (oder ohne Antworten fortfahren) und die KI-Fassung erzeugen. */
+export async function answerQuestionsAction(_prev: AiActionState, formData: FormData): Promise<AiActionState> {
+  const { actor } = await requireOwner();
+  const reportId = id.parse(formData.get("reportId"));
+  const skip = formData.get("intent") === "skip";
+  const answers: QuestionAnswer[] = [0, 1, 2]
+    .map((i) => ({
+      frage: String(formData.get(`frage-${i}`) ?? "").slice(0, 300),
+      antwort: String(formData.get(`antwort-${i}`) ?? "").slice(0, 2_000),
+    }))
+    .filter((a) => a.frage);
+  if (!skip && answers.every((a) => !a.antwort.trim())) {
+    return { error: "Bitte mindestens eine Frage beantworten – oder „Ohne Antworten fortfahren“." };
+  }
+  const { config, provider } = aiRuntime();
+  try {
+    await requestLanguageSuggestions({ db: getDb(), actor, provider, config }, reportId, "rewrite", {
+      answers: skip ? [] : answers,
+      noQuestions: true,
+    });
+  } catch (error) {
+    const message = messageFor(error);
+    if (message) return { error: message };
+    throw error;
+  }
+  revalidatePath(`/app/reports/${reportId}/ai`);
+  redirect(`/app/reports/${reportId}/ai`);
 }

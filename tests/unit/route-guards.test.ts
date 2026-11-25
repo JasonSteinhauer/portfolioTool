@@ -69,3 +69,13 @@ describe("Viewer-Seiten (/p)", () => {
     });
   }
 });
+
+describe("Betrachter-Vorschau (/vorschau)", () => {
+  const previewFiles = walk(join(process.cwd(), "src/app/vorschau")).filter((f) => /\/(page|layout)\.tsx$/.test(f));
+  it("findet Vorschau-Seiten", () => expect(previewFiles.length).toBeGreaterThanOrEqual(3));
+  for (const file of previewFiles) {
+    it(`${relative(process.cwd(), file)} ruft requireOwner() auf`, () => {
+      expect(readFileSync(file, "utf8")).toMatch(/await requireOwner\(\)/);
+    });
+  }
+});

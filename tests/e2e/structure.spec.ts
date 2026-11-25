@@ -16,6 +16,10 @@ const reports: Record<string, string> = {};
 let projectUrl = "";
 
 async function audit(page: Page, label: string) {
+  // Einblende-Animationen aus: axe soll den Endzustand messen, nicht halb transparente Zwischenbilder.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Next streamt Metadaten (Titel) teils nach – erst prüfen, wenn der Titel da ist.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page }).withTags(WCAG).analyze();
   const violations = results.violations.map((v) => ({
     id: v.id,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CODE_LANGUAGES, INSIGHT_VARIANTS, safeLinkUrl } from "@/content/blocks/schema";
+import { blockSchema, CODE_LANGUAGES, INSIGHT_VARIANTS, LIMITS, safeLinkUrl } from "@/content/blocks/schema";
 
 /**
  * Komponenten-Registry für Portfolio-Seiten.
@@ -22,6 +22,7 @@ export const PAGE_COMPONENT_TYPES = [
   "codeShowcase",
   "gallery",
   "insights",
+  "fullReport",
 ] as const;
 export type PageComponentType = (typeof PAGE_COMPONENT_TYPES)[number];
 
@@ -89,6 +90,20 @@ export const pageComponentSchema = z.discriminatedUnion("type", [
       sourceBlockIds,
     })
     .strict(),
+  z
+    .object({
+      id: componentId,
+      type: z.literal("fullReport"),
+      /** Report-Typ, z. B. „Projektbericht“. */
+      typeName: text(80),
+      facts: z.array(z.object({ label: text(60).min(1), value: text(300).min(1) }).strict()).max(20),
+      tags: z.array(text(40).min(1)).max(20),
+      sections: z.array(z.object({ title: text(120).min(1), text: text(8_000) }).strict()).max(20),
+      /** Inhaltsblöcke des Reports (ohne Anhänge). Bilder: wie bei `gallery` eingefroren. */
+      blocks: z.array(blockSchema).max(LIMITS.maxBlocks),
+      sourceBlockIds,
+    })
+    .strict(),
 ]);
 
 export type PageComponent = z.infer<typeof pageComponentSchema>;
@@ -150,5 +165,7 @@ export function emptyComponent(type: PageComponentType): PageComponent {
       return { id, type, heading: "Bilder", items: [] };
     case "insights":
       return { id, type, heading: "Erkenntnisse", items: [] };
+    case "fullReport":
+      return { id, type, typeName: "", facts: [], tags: [], sections: [], blocks: [] };
   }
 }

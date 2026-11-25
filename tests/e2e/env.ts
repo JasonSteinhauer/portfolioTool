@@ -99,6 +99,22 @@ export const E2E_STRUCTURE_OWNERS = {
   mobile: { email: "e2e-structure-mobile@example.test", name: "Struktur Mobile", ip: "198.51.100.240" },
 } as const;
 
+/** Owner ohne 2FA für die gestaltete Präsentation (Vorschau, vollständiger Bericht, Viewer). */
+export const E2E_PRESENTATION_OWNERS = {
+  desktop: {
+    email: "e2e-presentation-desktop@example.test",
+    name: "Präsentation Desktop",
+    ip: "198.51.100.241",
+    viewerIp: "198.51.100.243",
+  },
+  mobile: {
+    email: "e2e-presentation-mobile@example.test",
+    name: "Präsentation Mobile",
+    ip: "198.51.100.242",
+    viewerIp: "198.51.100.244",
+  },
+} as const;
+
 /** IPs der „Betrachter“ eines Freigabelinks (fremder Browser ohne Konto). */
 export const E2E_VIEWER_IPS = { desktop: "198.51.100.70", mobile: "198.51.100.80" } as const;
 

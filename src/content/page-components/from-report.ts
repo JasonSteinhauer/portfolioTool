@@ -1,4 +1,5 @@
 import type { Block, ContentDocument } from "@/content/blocks/schema";
+import { isRenderable } from "@/content/blocks/render";
 import { extractPlainText } from "@/content/blocks/utils";
 import type { FieldDefinition } from "@/modules/reports/report-types";
 import { newComponentId, PAGE_SCHEMA_VERSION, type PageComponent, type PageConfig } from "./schema";
@@ -131,4 +132,58 @@ export function pageConfigFromReport(report: ReportLike): PageConfig {
   }
 
   return { schemaVersion: PAGE_SCHEMA_VERSION, components };
+}
+
+const longDate = new Intl.DateTimeFormat("de-DE", { dateStyle: "long", timeZone: "UTC" });
+
+function factValue(field: FieldDefinition, raw: unknown): string {
+  const value = asText(raw);
+  if (field.type === "date" && value) return longDate.format(new Date(`${value}T12:00:00Z`));
+  if (field.type === "select") return field.options?.find((o) => o.value === value)?.label ?? value;
+  return value;
+}
+
+/** Die Bestandteile eines vollständigen Berichts – ohne Anhänge (die bleiben privat). */
+export function fullReportFromReport(report: ReportLike): Omit<Extract<PageComponent, { type: "fullReport" }>, "id"> {
+  const fields = report.structuredFields;
+  const filled = report.fieldSchema.filter((f) => {
+    const v = fields[f.key];
+    return Array.isArray(v) ? v.length > 0 : asText(v) !== "";
+  });
+  const blocks = report.content.blocks.filter((b) => b.type !== "attachment" && isRenderable(b));
+  return {
+    type: "fullReport",
+    typeName: report.typeName.slice(0, 80),
+    facts: filled
+      // Das Hauptdatum steht bereits in der Überzeile des Kopfes.
+      .filter(
+        (f) =>
+          f.type === "text" || f.type === "select" || f.type === "url" || (f.type === "date" && f.key !== "occurredOn"),
+      )
+      .map((f) => ({ label: f.label.slice(0, 60), value: factValue(f, fields[f.key]).slice(0, 300) }))
+      .filter((f) => f.value)
+      .slice(0, 20),
+    tags: filled
+      .filter((f) => f.type === "tags")
+      .flatMap((f) => (fields[f.key] as unknown[]).filter((t): t is string => typeof t === "string"))
+      .map((t) => t.trim().slice(0, 40))
+      .filter(Boolean)
+      .slice(0, 20),
+    sections: filled
+      .filter((f) => f.type === "textarea")
+      .map((f) => ({ title: f.label.slice(0, 120), text: asText(fields[f.key]).slice(0, 8_000) }))
+      .slice(0, 20),
+    blocks,
+    sourceBlockIds: blocks.map((b) => b.id),
+  };
+}
+
+/** Seite „vollständiger Bericht“: Hero + der komplette Report. */
+export function fullReportPageFromReport(report: ReportLike): PageConfig {
+  const base = pageConfigFromReport(report);
+  const hero = base.components.find((c) => c.type === "hero")!;
+  return {
+    schemaVersion: PAGE_SCHEMA_VERSION,
+    components: [hero, { id: newComponentId(), ...fullReportFromReport(report) }],
+  };
 }
