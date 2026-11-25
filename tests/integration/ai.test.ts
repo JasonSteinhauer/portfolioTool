@@ -354,3 +354,69 @@ describe("Seitenkomposition", () => {
     await expect(requestComposition(deps(), page.id)).rejects.toThrow(AiBlockedError);
   });
 });
+
+describe("Rückfragen vor der KI-Fassung", () => {
+  it("fragt bei Unklarem nach, nutzt die Antworten und fragt dann nicht erneut", async () => {
+    const id = await report();
+    const before = await getReport(db, owner, id);
+    await saveReport(db, owner, id, {
+      title: before.title,
+      structuredFields: { ...(before.structuredFields as object), conclusion: "regel angepasst ??\nalarm geschlossen" },
+      content: before.content,
+      classification: before.classification,
+      aiAllowed: true,
+      revision: before.revision,
+    });
+
+    const provider = new FakeProvider();
+    const first = await requestLanguageSuggestions(deps(provider), id, "rewrite");
+    expect(first.count).toBe(0);
+    expect(first.questions).toHaveLength(1);
+    let pending = await listProposals(db, owner, { type: "report", id });
+    expect(pending.map((p) => p.kind)).toEqual(["questions"]);
+
+    const second = await requestLanguageSuggestions(deps(provider), id, "rewrite", {
+      answers: [{ frage: first.questions[0], antwort: "Schwellwert von 5 auf 20 erhöht" }],
+    });
+    expect(second.questions).toEqual([]);
+    expect(provider.calls[1].user).toContain('"keineRueckfragen":true');
+    expect(provider.calls[1].user).toContain("Schwellwert von 5 auf 20");
+    pending = await listProposals(db, owner, { type: "report", id });
+    expect(pending.some((p) => p.kind === "questions")).toBe(false);
+    const conclusion = pending.find((p) => (p.payload as { key: string }).key === "field:conclusion")!;
+    expect((conclusion.payload as { after: string }).after).toContain("Schwellwert von 5 auf 20 erhöht");
+  });
+
+  it("Korrektur (proofread) und „ohne Rückfragen“ fragen nie", async () => {
+    const id = await report();
+    const before = await getReport(db, owner, id);
+    await saveReport(db, owner, id, {
+      title: before.title,
+      structuredFields: { ...(before.structuredFields as object), conclusion: "unklar ??" },
+      content: before.content,
+      classification: before.classification,
+      aiAllowed: true,
+      revision: before.revision,
+    });
+    const provider = new FakeProvider();
+    expect((await requestLanguageSuggestions(deps(provider), id, "proofread")).questions).toEqual([]);
+    const skipped = await requestLanguageSuggestions(deps(provider), id, "rewrite", { noQuestions: true });
+    expect(skipped.questions).toEqual([]);
+    expect(provider.calls[1].user).toContain('"keineRueckfragen":true');
+  });
+
+  it("schwärzt Antworten und sendet keine mit Geheimnissen", async () => {
+    const id = await report();
+    const provider = new FakeProvider();
+    await requestLanguageSuggestions(deps(provider), id, "rewrite", {
+      answers: [
+        { frage: "Wer?", antwort: "alice@example.test meldete es" },
+        { frage: "Womit?", antwort: `mit ${SYNTHETIC_SECRET}` },
+      ],
+    });
+    const user = provider.calls[0].user;
+    expect(user).not.toContain("alice@example.test");
+    expect(user).toContain("[E-MAIL-");
+    expect(user).not.toContain(SYNTHETIC_SECRET);
+  });
+});

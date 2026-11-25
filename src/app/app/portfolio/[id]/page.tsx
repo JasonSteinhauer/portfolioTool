@@ -9,7 +9,7 @@ import { Button } from "@/ui/button";
 import { Meta } from "@/ui/card";
 import { MediaLibraryProvider } from "@/ui/media/media-picker";
 import { PageHeader } from "@/ui/workspace-shell";
-import { toggleFavoriteAction, unpublishPageAction } from "../actions";
+import { refreshFullReportAction, toggleFavoriteAction, unpublishPageAction } from "../actions";
 import { listProposals } from "@/modules/ai/language";
 import { aiRuntime } from "@/modules/ai/runtime";
 import { getReport } from "@/modules/reports/service";
@@ -19,9 +19,16 @@ import { PageEditor } from "./page-editor";
 
 export const metadata: Metadata = { title: "Portfolio-Seite" };
 
-export default async function PortfolioPageEditor({ params }: { params: Promise<{ id: string }> }) {
+export default async function PortfolioPageEditor({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { actor } = await requireOwner();
   const { id } = await params;
+  const refreshed = (await searchParams).aktualisiert;
   const db = getDb();
   const page = await getPage(db, actor, id).catch((error: unknown) => {
     if (error instanceof PageNotFoundError) notFound();
@@ -65,6 +72,14 @@ export default async function PortfolioPageEditor({ params }: { params: Promise<
         }
         actions={
           <>
+            {page.sourceReportId && page.config.components.some((c) => c.type === "fullReport") ? (
+              <form action={refreshFullReportAction}>
+                <input type="hidden" name="pageId" value={page.id} />
+                <Button type="submit" variant="secondary" size="sm" title="Übernimmt den aktuellen Stand des Reports">
+                  Aus Report aktualisieren
+                </Button>
+              </form>
+            ) : null}
             <form action={toggleFavoriteAction}>
               <input type="hidden" name="itemType" value="page" />
               <input type="hidden" name="itemId" value={page.id} />
@@ -115,6 +130,7 @@ export default async function PortfolioPageEditor({ params }: { params: Promise<
       </section>
       <MediaLibraryProvider initial={media.map(toSummary)}>
         <PageEditor
+          key={typeof refreshed === "string" ? refreshed : "editor"}
           pageId={page.id}
           initialMeta={{ title: page.title, slug: page.slug, locale: page.locale }}
           initialConfig={page.config}

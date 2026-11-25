@@ -2,8 +2,13 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { z } from "zod";
-import { pageConfigFromReport } from "@/content/page-components/from-report";
 import {
+  fullReportFromReport,
+  fullReportPageFromReport,
+  pageConfigFromReport,
+} from "@/content/page-components/from-report";
+import {
+  newComponentId,
   PAGE_SCHEMA_VERSION,
   pageConfigSchema,
   profileConfigSchema,
@@ -45,7 +50,13 @@ export type CaseStudySnapshot = {
   slug: string;
   locale: "de" | "en";
   page: PageConfig;
+  /**
+   * Verknüpfte Reports zum Zeitpunkt der Freigabe. Klickbar wird ein Eintrag im Viewer nur, wenn die
+   * Seite des Ziels ebenfalls freigegeben ist UND der Link sie umfasst – sonst nur als Text.
+   */
+  related?: RelatedEntry[];
 };
+export type RelatedEntry = { title: string; relation: "buildsOn" | "leadsTo"; pageId: string | null };
 export type ProfileSnapshot = { kind: "profile"; profile: ProfileConfig };
 
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,78}[a-z0-9])$/;
@@ -154,9 +165,18 @@ export async function createPageFromReport(
   db: Db,
   actor: Actor,
   reportId: string,
+  /** `full`: Seite zeigt den kompletten Report (bei bestehender Seite wird der Abschnitt ergänzt). */
+  mode: "case_study" | "full" = "case_study",
 ): Promise<{ id: string; created: boolean }> {
   assertCan(actor, "portfolio_page:create");
   const report = await getReport(db, actor, reportId);
+  const source = {
+    title: report.title,
+    typeName: report.type.name,
+    structuredFields: report.structuredFields,
+    fieldSchema: report.type.fieldSchema,
+    content: report.content,
+  };
 
   const [existing] = await db
     .select({ id: schema.portfolioPages.id })
@@ -168,15 +188,23 @@ export async function createPageFromReport(
         isNull(schema.portfolioPages.deletedAt),
       ),
     );
-  if (existing) return { id: existing.id, created: false };
+  if (existing) {
+    if (mode === "full") {
+      const page = await getPage(db, actor, existing.id);
+      if (!page.config.components.some((c) => c.type === "fullReport")) {
+        const components = [...page.config.components];
+        const heroIndex = components.findIndex((c) => c.type === "hero");
+        components.splice(heroIndex + 1, 0, { id: newComponentId(), ...fullReportFromReport(source) });
+        await db
+          .update(schema.portfolioPages)
+          .set({ draftConfig: { ...page.config, components: components.slice(0, 30) }, updatedAt: new Date() })
+          .where(eq(schema.portfolioPages.id, page.id));
+      }
+    }
+    return { id: existing.id, created: false };
+  }
 
-  const config = pageConfigFromReport({
-    title: report.title,
-    typeName: report.type.name,
-    structuredFields: report.structuredFields,
-    fieldSchema: report.type.fieldSchema,
-    content: report.content,
-  });
+  const config = mode === "full" ? fullReportPageFromReport(source) : pageConfigFromReport(source);
   const slug = await uniqueSlug(db, actor.userId, slugify(report.title));
   const [page] = await db
     .insert(schema.portfolioPages)
@@ -190,6 +218,29 @@ export async function createPageFromReport(
     })
     .returning({ id: schema.portfolioPages.id });
   return { id: page.id, created: true };
+}
+
+/** Übernimmt den aktuellen Stand des Quell-Reports in alle „Vollständiger Bericht“-Abschnitte des Entwurfs. */
+export async function refreshFullReport(db: Db, actor: Actor, pageId: string) {
+  const page = await getPage(db, actor, pageId);
+  assertCan(actor, "portfolio_page:update", { ownerId: page.ownerId });
+  if (!page.sourceReportId) return;
+  const report = await getReport(db, actor, page.sourceReportId);
+  const fresh = fullReportFromReport({
+    title: report.title,
+    typeName: report.type.name,
+    structuredFields: report.structuredFields,
+    fieldSchema: report.type.fieldSchema,
+    content: report.content,
+  });
+  const config: PageConfig = {
+    ...page.config,
+    components: page.config.components.map((c) => (c.type === "fullReport" ? { ...fresh, id: c.id } : c)),
+  };
+  await db
+    .update(schema.portfolioPages)
+    .set({ draftConfig: pageConfigSchema.parse(config), updatedAt: new Date() })
+    .where(eq(schema.portfolioPages.id, page.id));
 }
 
 export const savePageSchema = z.object({
@@ -285,7 +336,14 @@ async function freezeMedia(
   actor: Actor,
   config: PageConfig,
 ): Promise<{ config: PageConfig; media: FrozenMedia[] }> {
-  const items = config.components.flatMap((c) => (c.type === "gallery" ? c.items : []));
+  const items = [
+    ...config.components.flatMap((c) => (c.type === "gallery" ? c.items : [])),
+    ...config.components.flatMap((c) =>
+      c.type === "fullReport"
+        ? c.blocks.flatMap((b) => (b.type === "image" ? [{ mediaId: b.mediaId, alt: b.alt }] : []))
+        : [],
+    ),
+  ];
   if (items.length === 0) return { config, media: [] };
   if (items.some((item) => item.alt.trim() === "")) {
     throw new PublishBlockedError(
@@ -334,11 +392,63 @@ async function freezeMedia(
       components: config.components.map((c) =>
         c.type === "gallery"
           ? { ...c, items: c.items.map((item) => ({ ...item, mediaId: frozen.get(item.mediaId)!.id })) }
-          : c,
+          : c.type === "fullReport"
+            ? {
+                ...c,
+                blocks: c.blocks.map((b) => (b.type === "image" ? { ...b, mediaId: frozen.get(b.mediaId)!.id } : b)),
+              }
+            : c,
       ),
     },
     media: [...frozen.values()],
   };
+}
+
+/**
+ * Verknüpfte Reports für den Snapshot: Titel, Richtung und – falls vorhanden – die Portfolio-Seite des Ziels.
+ * „Intern / sensibel“ eingestufte Reports erscheinen gar nicht (auch nicht ihr Titel).
+ */
+async function relatedEntries(db: Db, actor: Actor, reportId: string): Promise<RelatedEntry[]> {
+  const rows = await db
+    .select({
+      source: schema.reportLinks.sourceReportId,
+      target: schema.reportLinks.targetReportId,
+      title: schema.reports.title,
+      reportId: schema.reports.id,
+      classification: schema.reports.classification,
+      pageId: schema.portfolioPages.id,
+    })
+    .from(schema.reportLinks)
+    .innerJoin(
+      schema.reports,
+      sql`${schema.reports.id} = case when ${schema.reportLinks.sourceReportId} = ${reportId} then ${schema.reportLinks.targetReportId} else ${schema.reportLinks.sourceReportId} end`,
+    )
+    .leftJoin(
+      schema.portfolioPages,
+      and(eq(schema.portfolioPages.sourceReportId, schema.reports.id), isNull(schema.portfolioPages.deletedAt)),
+    )
+    .where(
+      and(
+        eq(schema.reportLinks.ownerId, actor.userId),
+        isNull(schema.reports.deletedAt),
+        sql`(${schema.reportLinks.sourceReportId} = ${reportId} or ${schema.reportLinks.targetReportId} = ${reportId})`,
+      ),
+    )
+    .orderBy(schema.reports.title);
+  return rows
+    .filter((r) => r.classification !== "internal_sensitive")
+    .slice(0, 30)
+    .map((r) => ({
+      title: r.title.slice(0, 200),
+      relation: r.target === reportId ? "buildsOn" : "leadsTo",
+      pageId: r.pageId,
+    }));
+}
+
+/** Verknüpfungen, wie sie bei einer Freigabe JETZT eingefroren würden (für die Betrachter-Vorschau). */
+export async function previewRelated(db: Db, actor: Actor, pageId: string): Promise<RelatedEntry[]> {
+  const page = await getPage(db, actor, pageId);
+  return page.sourceReportId ? relatedEntries(db, actor, page.sourceReportId) : [];
 }
 
 /**
@@ -365,10 +475,11 @@ export async function publishPage(db: Db, actor: Actor, pageId: string) {
   }
 
   const { config, media } = await freezeMedia(db, actor, stripSources(page.config));
+  const related = page.sourceReportId ? await relatedEntries(db, actor, page.sourceReportId) : [];
   const snapshot = await createSnapshot(
     db,
     pageId,
-    { kind: "case_study", title: page.title, slug: page.slug, locale: page.locale, page: config },
+    { kind: "case_study", title: page.title, slug: page.slug, locale: page.locale, page: config, related },
     page.sourceReportId,
     media,
   );

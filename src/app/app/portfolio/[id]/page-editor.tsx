@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef, useState, type ReactNode } from "react";
 import { CODE_LANGUAGES, INSIGHT_VARIANTS } from "@/content/blocks/schema";
 import { PageView } from "@/content/page-components/render";
@@ -27,6 +28,7 @@ const TYPE_LABELS: Record<PageComponentType, string> = {
   codeShowcase: "Code",
   gallery: "Bilder",
   insights: "Erkenntnisse",
+  fullReport: "Vollständiger Bericht",
 };
 
 const INSIGHT_LABELS = {
@@ -56,6 +58,7 @@ export function PageEditor({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [publish, publishAction, publishing] = useActionState<PublishState, FormData>(publishPageAction, {});
   const latest = useRef({ meta, config });
+  const router = useRouter();
 
   useEffect(() => {
     latest.current = { meta, config };
@@ -113,7 +116,18 @@ export function PageEditor({
           >
             {saving ? "Speichert …" : dirty ? "Ungespeicherte Änderungen (Strg+S)" : "Gespeichert"}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={saving}
+              onClick={async () => {
+                if (dirty && !(await save())) return;
+                router.push(`/vorschau/${pageId}`);
+              }}
+            >
+              Als Betrachter ansehen
+            </Button>
             <Button size="sm" variant="secondary" disabled={saving || !dirty} onClick={() => void save()}>
               Speichern
             </Button>
@@ -207,7 +221,7 @@ export function PageEditor({
 
         <div role="group" aria-label="Abschnitt hinzufügen" className="flex flex-wrap items-center gap-2">
           <Meta>+ Abschnitt</Meta>
-          {PAGE_COMPONENT_TYPES.map((type) => (
+          {PAGE_COMPONENT_TYPES.filter((type) => type !== "fullReport").map((type) => (
             <button
               key={type}
               type="button"
@@ -374,6 +388,16 @@ function ComponentEditor({
             {input("Code", component.code, (v) => onChange({ ...component, code: v }), { area: true, mono: true })}
             {input("Bildunterschrift", component.caption, (v) => onChange({ ...component, caption: v }))}
           </>
+        ) : null}
+        {component.type === "fullReport" ? (
+          <div className="flex flex-col gap-1 text-sm text-text-secondary">
+            <p>
+              Zeigt den kompletten Report: {component.facts.length} Eckdaten, {component.sections.length} Abschnitte,{" "}
+              {component.blocks.length} Inhaltsblöcke
+              {component.tags.length > 0 ? `, ${component.tags.length} Schlagworte` : ""}.
+            </p>
+            <p>Bearbeitet wird im Report selbst – danach oben „Aus Report aktualisieren“. Anhänge bleiben privat.</p>
+          </div>
         ) : null}
         {component.type === "gallery" ? (
           <GalleryEditor component={component} label={label} input={input} onChange={onChange} />

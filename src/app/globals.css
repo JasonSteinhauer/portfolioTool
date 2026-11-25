@@ -169,3 +169,142 @@ img.ProseMirror-separator {
 .ProseMirror-hideselection * {
   caret-color: transparent;
 }
+
+/*
+ * Präsentation (Viewer & Betrachter-Vorschau), Stil „Terminal“.
+ * Animationen nur über Klassen – die strikte CSP erlaubt keine Inline-Styles.
+ * Bei „Bewegung reduzieren“ greift oben die globale Regel; scroll-gebundene Effekte sind zusätzlich aus.
+ */
+.pv-grid {
+  /* Workspace-Bausteine (z. B. Inhaltsblöcke) übernehmen innerhalb der Präsentation deren Palette. */
+  --bg: #0a0c0f;
+  --surface: #0e1217;
+  --surface-elevated: #141920;
+  --border-default: #1c2128;
+  --border-strong: #2a313a;
+  --line-subtle: #1c2128;
+  --line-technical: #2a313a;
+  --text-primary: #e6e8eb;
+  --text-secondary: #9aa3ad;
+  background-color: #0a0c0f;
+  background-image: linear-gradient(#141920 1px, transparent 1px), linear-gradient(90deg, #141920 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+@keyframes pv-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pv-type {
+  from {
+    width: 0;
+  }
+}
+@keyframes pv-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes pv-scan {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(250%);
+  }
+}
+@keyframes pv-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.pv-in {
+  animation: pv-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.pv-d1 {
+  animation-delay: 0.12s;
+}
+.pv-d2 {
+  animation-delay: 0.24s;
+}
+.pv-d3 {
+  animation-delay: 0.36s;
+}
+.pv-d4 {
+  animation-delay: 0.6s;
+}
+.pv-d5 {
+  animation-delay: 0.9s;
+}
+.pv-d6 {
+  animation-delay: 1.15s;
+}
+.pv-d7 {
+  animation-delay: 1.4s;
+}
+.pv-d8 {
+  animation-delay: 1.65s;
+}
+.pv-typed {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  width: 6ch; /* „whoami“ */
+  animation: pv-type 0.9s steps(6) 0.3s both;
+}
+.pv-cursor {
+  animation: pv-blink 1s steps(1) infinite;
+}
+.pv-scan {
+  animation: pv-scan 4.5s linear infinite;
+}
+.pv-rv {
+  animation: pv-up 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.pv-progress {
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+@supports (animation-timeline: view()) {
+  .pv-rv {
+    animation-timeline: view();
+    animation-range: entry 0% cover 25%;
+  }
+  .pv-progress {
+    animation: pv-grow linear both;
+    animation-timeline: scroll(root);
+  }
+}
+.pv-card {
+  transition:
+    border-color 0.25s,
+    transform 0.25s,
+    background-color 0.25s;
+}
+.pv-card:hover {
+  border-color: #ff4fa3;
+  transform: translateY(-4px);
+  background-color: #11151b;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pv-in,
+  .pv-typed,
+  .pv-rv,
+  .pv-progress,
+  .pv-scan,
+  .pv-cursor {
+    animation: none !important;
+  }
+  .pv-card:hover {
+    transform: none;
+  }
+}

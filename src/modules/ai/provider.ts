@@ -155,6 +155,14 @@ export function defaultFakeResponder(request: AiRequest): string {
   }
   if (request.kind === "report.rewrite") {
     const units = (data?.texte ?? []) as { key: string; text: string }[];
+    // Deterministische Rückfrage: „??“ im Text markiert eine unklare Stelle.
+    const unclear = units.find((u) => u.text.includes("??"));
+    if (unclear && data?.keineRueckfragen === false) {
+      return JSON.stringify({
+        rueckfragen: [{ frage: `Was ist bei „${unclear.text.split("??")[0].trim().slice(-40)}“ gemeint?` }],
+      });
+    }
+    const answers = (data?.antworten ?? []) as { frage: string; antwort: string }[];
     // Deterministisch: Stichpunkte → Sätze in Ich-Form.
     const rewrite = (text: string) =>
       text
@@ -173,7 +181,12 @@ export function defaultFakeResponder(request: AiRequest): string {
         .join(" ");
     return JSON.stringify({
       vorschlaege: units
-        .map((u) => ({ key: u.key, text: rewrite(u.text), begruendung: "Stichpunkte ausformuliert" }))
+        .map((u) => ({
+          key: u.key,
+          // Antworten fließen deterministisch ein: „??“ wird durch die erste Antwort ersetzt.
+          text: rewrite(answers[0] ? u.text.replace("??", ` (${answers[0].antwort})`) : u.text.replace("??", "")),
+          begruendung: "Stichpunkte ausformuliert",
+        }))
         .filter((s, i) => s.text !== units[i].text),
     });
   }

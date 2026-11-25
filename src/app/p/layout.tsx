@@ -6,17 +6,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-/** Rahmen der freigegebenen Portfolio-Ansicht – bewusst ohne Workspace-Navigation. */
+/** Rahmen der freigegebenen Ansicht – die Gestaltung liefert `ViewerShell` in den Seiten. */
 export default function ViewerLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="min-h-dvh">
-      <div aria-hidden="true" className="h-1 bg-accent" />
-      <main id="main" className="mx-auto w-full max-w-content px-6 py-16 sm:px-10">
-        {children}
-      </main>
-      <footer className="mx-auto max-w-content border-t border-line-subtle px-6 py-8 font-mono text-[11px] uppercase tracking-[0.08em] text-text-secondary sm:px-10">
-        Privat geteilt · nicht öffentlich indexiert
-      </footer>
-    </div>
-  );
+  return children;
 }

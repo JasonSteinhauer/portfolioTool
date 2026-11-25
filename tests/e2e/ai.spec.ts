@@ -146,6 +146,33 @@ test("Gestaltete Vorschau im Editor und KI-Fassung mit Live-Vorschau", async () 
   );
 });
 
+test("KI fragt nach, wenn etwas unklar ist, und nutzt die Antwort", async () => {
+  await owner.goto("/app/reports/new");
+  await owner.getByRole("button", { name: /Tätigkeitsbericht/ }).click();
+  await expect(owner).toHaveURL(/\/edit$/);
+  const id = owner.url().match(/reports\/([0-9a-f-]+)\/edit$/)![1];
+  await owner.getByLabel("Titel", { exact: true }).fill("Rückfrage (synthetisch)");
+  await owner.getByLabel("Datum / Zeitraum").fill("2026-11-25");
+  await owner.getByLabel("Kontext / Abteilung").fill("SOC");
+  await owner.getByLabel("Aufgabe").fill("regel angepasst ??,\nalarm geschlossen");
+  await owner.getByRole("checkbox", { name: /KI-Verarbeitung erlauben/ }).check();
+  await owner.getByRole("button", { name: "KI-Fassung" }).click();
+  await expect(owner).toHaveURL(new RegExp(`/app/reports/${id}/ai$`));
+
+  const form = owner.getByTestId("ai-questions");
+  await expect(form).toContainText("Kurze Rückfragen der KI");
+  await expect(owner.getByTestId("ai-proposals")).toHaveCount(0);
+  const scan = await new AxeBuilder({ page: owner }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+  expect(scan.violations.map((v) => v.id)).toEqual([]);
+
+  await form.getByRole("button", { name: "Antworten senden & KI-Fassung erzeugen" }).click();
+  await expect(form.getByRole("alert")).toContainText("mindestens eine Frage");
+  await form.getByRole("textbox").first().fill("Schwellwert erhöht");
+  await form.getByRole("button", { name: "Antworten senden & KI-Fassung erzeugen" }).click();
+  await expect(owner.getByTestId("ai-questions")).toHaveCount(0);
+  await expect(owner.getByTestId("ai-preview")).toContainText("Schwellwert erhöht");
+});
+
 test("Nutzungsübersicht zeigt Aufträge und Budget", async () => {
   await owner.goto("/app/settings");
   const card = owner.getByTestId("ai-usage-card");

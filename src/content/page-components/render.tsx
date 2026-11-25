@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { DocumentView } from "@/content/blocks/render";
+import { LongText } from "@/content/report-document";
 import type { PageComponent, PageConfig } from "./schema";
 
 /**
@@ -162,6 +164,41 @@ export function PageComponentView({
               </li>
             ))}
           </ul>
+        </Section>
+      );
+    case "fullReport":
+      return (
+        <Section heading={component.typeName || "Bericht"} id={component.id}>
+          {component.facts.length > 0 ? (
+            <dl className="grid gap-x-8 gap-y-4 border-y-2 border-border-default py-5 sm:grid-cols-2">
+              {component.facts.map((fact, i) => (
+                <div key={i}>
+                  <dt className="font-mono text-[11px] uppercase tracking-[0.08em] text-text-secondary">
+                    {fact.label}
+                  </dt>
+                  <dd className="mt-1 font-medium">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          {component.tags.length > 0 ? (
+            <ul className="flex flex-wrap gap-2">
+              {component.tags.map((tag) => (
+                <li key={tag} className="border border-border-strong px-2 py-0.5 font-mono text-xs">
+                  {tag}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {component.sections.map((section, i) => (
+            <div key={i} className="flex flex-col gap-3">
+              <h3 className="text-lg font-semibold">{section.title}</h3>
+              <LongText text={section.text} />
+            </div>
+          ))}
+          {component.blocks.length > 0 ? (
+            <DocumentView doc={{ schemaVersion: 1, blocks: component.blocks }} mediaUrl={mediaUrl} />
+          ) : null}
         </Section>
       );
   }

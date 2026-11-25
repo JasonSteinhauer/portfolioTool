@@ -10,6 +10,7 @@ import { requireOwner } from "@/modules/auth/session";
 import {
   addToShowcase,
   createPageFromReport,
+  refreshFullReport,
   moveInShowcase,
   publishPage,
   publishProfile,
@@ -27,8 +28,19 @@ const id = z.uuid();
 
 export async function createPageFromReportAction(formData: FormData): Promise<void> {
   const { actor } = await requireOwner();
-  const page = await createPageFromReport(getDb(), actor, id.parse(formData.get("reportId")));
+  const mode = formData.get("mode") === "full" ? "full" : "case_study";
+  const page = await createPageFromReport(getDb(), actor, id.parse(formData.get("reportId")), mode);
+  revalidatePath(`/app/portfolio/${page.id}`);
   redirect(`/app/portfolio/${page.id}`);
+}
+
+export async function refreshFullReportAction(formData: FormData): Promise<void> {
+  const { actor } = await requireOwner();
+  const pageId = id.parse(formData.get("pageId"));
+  await refreshFullReport(getDb(), actor, pageId);
+  revalidatePath(`/app/portfolio/${pageId}`);
+  // Neuer Schlüssel → der Editor übernimmt den aktualisierten Entwurf.
+  redirect(`/app/portfolio/${pageId}?aktualisiert=${Date.now()}`);
 }
 
 export async function toggleFavoriteAction(formData: FormData): Promise<void> {
