@@ -7,6 +7,10 @@ import { getMapData } from "@/modules/links/service";
 import {
   getProject,
   listProjectReports,
+  listProjects,
+  MAX_PROJECT_DEPTH,
+  projectAncestors,
+  projectDepth,
   listUnassignedReports,
   PROJECT_STATUS_LABEL,
   ProjectNotFoundError,
@@ -25,19 +29,30 @@ const fmt = (d: string | null) => (d ? dateFormat.format(new Date(`${d}T12:00:00
 const select =
   "h-10 min-w-0 flex-1 border-2 border-border-default bg-bg px-3 text-sm hover:border-border-strong focus-visible:border-accent focus-visible:outline-none";
 
-export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { actor } = await requireOwner();
   const { id } = await params;
+  const includeSub = (await searchParams).alle === "1";
   const db = getDb();
   const project = await getProject(db, actor, id).catch((error: unknown) => {
     if (error instanceof ProjectNotFoundError) notFound();
     throw error;
   });
-  const [reports, unassigned, mapData] = await Promise.all([
-    listProjectReports(db, actor, project.id),
+  const [reports, unassigned, mapData, ancestors, allProjects] = await Promise.all([
+    listProjectReports(db, actor, project.id, { includeSubprojects: includeSub }),
     listUnassignedReports(db, actor),
     getMapData(db, actor, { projectId: project.id }),
+    projectAncestors(db, actor, project.id),
+    listProjects(db, actor),
   ]);
+  const children = allProjects.filter((p) => p.parentProjectId === project.id);
+  const depth = projectDepth(allProjects, project.id);
   const layout = layoutMap(mapData);
   const self = `/app/projects/${project.id}`;
 
@@ -53,6 +68,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <Meta>
               {fmt(project.startedOn)} – {fmt(project.endedOn)}
             </Meta>
+            {ancestors.length > 0 ? (
+              <nav aria-label="Übergeordnete Projekte" className="w-full">
+                <Meta>
+                  {ancestors.map((a, i) => (
+                    <span key={a.id}>
+                      {i > 0 ? " / " : ""}
+                      <Link href={`/app/projects/${a.id}`} className="hover:text-text-primary">
+                        {a.title}
+                      </Link>
+                    </span>
+                  ))}
+                  {" / "}
+                  {project.title}
+                </Meta>
+              </nav>
+            ) : null}
           </div>
         }
         actions={
@@ -77,10 +108,54 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="flex min-w-0 flex-col gap-10">
+          {children.length > 0 || depth < MAX_PROJECT_DEPTH ? (
+            <section aria-labelledby="sub-heading">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 id="sub-heading" className="text-lg font-semibold">
+                  Unterprojekte
+                </h2>
+                {depth < MAX_PROJECT_DEPTH ? (
+                  <Link
+                    href={`/app/projects/new?parent=${project.id}`}
+                    className="text-sm underline decoration-accent underline-offset-4"
+                  >
+                    + Unterprojekt anlegen
+                  </Link>
+                ) : null}
+              </div>
+              {children.length === 0 ? (
+                <p className="text-sm text-text-secondary">Noch keine Unterprojekte.</p>
+              ) : (
+                <ul className="flex flex-wrap gap-2" data-testid="subprojects">
+                  {children.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/app/projects/${c.id}`}
+                        className="inline-flex h-9 items-center gap-2 border-2 border-border-default px-3 text-sm hover:border-accent"
+                      >
+                        {c.title}
+                        <Meta>{c.reportCount}</Meta>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ) : null}
           <section aria-labelledby="reports-heading">
-            <h2 id="reports-heading" className="mb-3 text-lg font-semibold">
-              Reports im Projekt
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 id="reports-heading" className="text-lg font-semibold">
+                Reports im Projekt
+              </h2>
+              {children.length > 0 ? (
+                <Link
+                  href={includeSub ? self : `${self}?alle=1`}
+                  className="text-sm underline decoration-accent underline-offset-4"
+                >
+                  {includeSub ? "Nur dieses Projekt" : "Mit Unterprojekten anzeigen"}
+                </Link>
+              ) : null}
+            </div>
             {reports.length === 0 ? (
               <p className="border-2 border-dashed border-border-default px-4 py-6 text-sm text-text-secondary">
                 Noch keine Reports. Füge rechts einen bestehenden Report hinzu oder ordne ihn im Report selbst zu.
@@ -94,6 +169,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                       <Meta>
                         {r.typeName}
                         {r.occurredOn ? ` · ${fmt(r.occurredOn)}` : ""}
+                        {r.projectId !== project.id ? ` · ${r.projectTitle}` : ""}
                       </Meta>
                     </Link>
                     <form action={assignReportAction}>
@@ -118,7 +194,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               <p className="text-sm text-text-secondary">Die Karte erscheint, sobald das Projekt Reports enthält.</p>
             ) : (
               <>
-                <ReportMap layout={layout} hrefFor={(n) => (n.kind === "report" ? `/app/reports/${n.id}` : self)} />
+                <ReportMap
+                  layout={layout}
+                  hrefFor={(n) =>
+                    n.kind === "report" ? `/app/reports/${n.id}` : n.virtual ? self : `/app/projects/${n.id}`
+                  }
+                />
                 <MapLegend />
               </>
             )}

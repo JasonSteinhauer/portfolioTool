@@ -79,3 +79,41 @@ describe("Karten-Layout", () => {
     expect(layout.width).toBeGreaterThan(0);
   });
 });
+
+describe("Karten-Layout mit Unterprojekten", () => {
+  it("legt Unterprojekte unter ihr Projekt und Reports darunter", () => {
+    const layout = layoutMap({
+      projects: [
+        { id: "p1", title: "Studium", status: "active", parentProjectId: null },
+        { id: "p2", title: "Praxisphase", status: "active", parentProjectId: "p1" },
+        { id: "p3", title: "KI-Triage", status: "active", parentProjectId: "p2" },
+      ],
+      reports: [report("a", "p3"), report("b", "p1")],
+      links: [],
+      externalIds: [],
+    });
+    expect(layout.projectRows).toBe(3);
+    const node = (id: string) => layout.nodes.find((n) => n.id === id)!;
+    expect([node("p1").layer, node("p2").layer, node("p3").layer]).toEqual([0, 1, 2]);
+    expect(node("p2").label).toBe("Unterprojekt");
+    expect(node("a").layer).toBe(3);
+    expect(node("b").layer).toBe(3);
+    const projectEdges = layout.edges.map((e) => `${e.source}>${e.target}`).sort();
+    expect(projectEdges).toEqual(["p1>b", "p1>p2", "p2>p3", "p3>a"]);
+    for (const a of layout.nodes)
+      for (const b of layout.nodes) if (a !== b) expect(overlaps(a, b), `${a.id}/${b.id}`).toBe(false);
+  });
+
+  it("übersteht Projekt-Kreise in fehlerhaften Daten", () => {
+    const layout = layoutMap({
+      projects: [
+        { id: "x", title: "X", status: "active", parentProjectId: "y" },
+        { id: "y", title: "Y", status: "active", parentProjectId: "x" },
+      ],
+      reports: [],
+      links: [],
+      externalIds: [],
+    });
+    expect(layout.nodes).toHaveLength(2);
+  });
+});

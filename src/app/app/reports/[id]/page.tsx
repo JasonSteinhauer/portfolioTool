@@ -6,7 +6,7 @@ import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { getReport, listReports, ReportNotFoundError } from "@/modules/reports/service";
 import { listLinks, type LinkedReport } from "@/modules/links/service";
-import { listProjects } from "@/modules/projects/service";
+import { listProjects, toProjectTree } from "@/modules/projects/service";
 import { assignReportAction, removeLinkAction } from "../../projects/actions";
 import { LinkForm } from "./link-form";
 import { listCompetencies, listReportCompetencies } from "@/modules/development/service";
@@ -50,7 +50,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     listFavoriteIds(getDb(), actor, "report"),
     listProposals(getDb(), actor, { type: "report", id: report.id }),
     listLinks(getDb(), actor, report.id),
-    listProjects(getDb(), actor),
+    listProjects(getDb(), actor).then(toProjectTree),
     listReports(getDb(), actor, {}, 300),
   ]);
   const [reportCompetencies, allCompetencies] = await Promise.all([
@@ -165,6 +165,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
                   <option value="">Ohne Projekt</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
+                      {"— ".repeat(p.depth - 1)}
                       {p.title}
                     </option>
                   ))}

@@ -1,11 +1,11 @@
 import type { MapData } from "@/modules/links/service";
 
 /**
- * Ordnet Projekte und Reports in Ebenen von oben nach unten an (reine Funktion, ohne DOM).
+ * Ordnet Projekte, Unterprojekte und Reports in Ebenen von oben nach unten an (reine Funktion, ohne DOM).
  *
- * - Ebene 0: Projekte (plus „Ohne Projekt“, falls nötig).
- * - Ebene n: Reports, deren längster Weg über Verknüpfungen von einer Wurzel aus n-1 lang ist.
- * - Innerhalb einer Ebene: nach Projekt gruppiert, dann möglichst unter den Eltern (Baryzentrum).
+ * - Oben die Projekte, darunter ihre Unterprojekte (je Ebene eine Zeile; plus „Ohne Projekt“, falls nötig).
+ * - Darunter die Reports: ein Report liegt eine Ebene unter seinem tiefsten Eltern-Report.
+ * - Innerhalb einer Ebene nach Projekt-Baum gruppiert, dann möglichst unter den Eltern (Baryzentrum).
  */
 
 export const NODE_W = 232;
@@ -20,7 +20,7 @@ export type LayoutNode = {
   id: string;
   kind: "project" | "report";
   title: string;
-  /** Report-Typ bzw. „Projekt“. */
+  /** Report-Typ bzw. „Projekt“ / „Unterprojekt“. */
   label: string;
   status: string;
   layer: number;
@@ -44,6 +44,8 @@ export type Layout = {
   width: number;
   height: number;
   layers: number;
+  /** Anzahl der Zeilen, die Projekte/Unterprojekte belegen (≥ 1). */
+  projectRows: number;
 };
 
 function edgePath(a: LayoutNode, b: LayoutNode): string {
@@ -55,11 +57,38 @@ function edgePath(a: LayoutNode, b: LayoutNode): string {
   return `M${x1} ${y1} C${x1} ${mid},${x2} ${y2 - (mid - y1)},${x2} ${y2}`;
 }
 
+const rowY = (layer: number) => MARGIN_Y + layer * (NODE_H + ROW_GAP);
+
 export function layoutMap(data: MapData): Layout {
   const reportIds = new Set(data.reports.map((r) => r.id));
   const links = data.links.filter((l) => reportIds.has(l.source) && reportIds.has(l.target) && l.source !== l.target);
   const external = new Set(data.externalIds);
   const projectIds = new Set(data.projects.map((p) => p.id));
+  const parentOf = (id: string) => {
+    const parent = data.projects.find((p) => p.id === id)?.parentProjectId ?? null;
+    return parent && projectIds.has(parent) && parent !== id ? parent : null;
+  };
+
+  // --- Projekt-Baum: Ebene je Projekt und Vorordnung (für die Gruppierung) -----------
+  const projectDepth = new Map<string, number>();
+  const preorder: string[] = [];
+  const visit = (parent: string | null, depth: number) => {
+    for (const p of data.projects) {
+      if (parentOf(p.id) !== parent || projectDepth.has(p.id)) continue;
+      projectDepth.set(p.id, depth);
+      preorder.push(p.id);
+      visit(p.id, depth + 1);
+    }
+  };
+  visit(null, 0);
+  // Kreise in fehlerhaften Daten: übrig gebliebene Projekte oben einordnen.
+  for (const p of data.projects) {
+    if (!projectDepth.has(p.id)) {
+      projectDepth.set(p.id, 0);
+      preorder.push(p.id);
+    }
+  }
+  const projectRows = Math.max(0, ...projectDepth.values()) + 1;
 
   // --- Tiefe je Report: längster Weg (Kahn, zyklenfest: Reste landen unten) -------------
   const parents = new Map<string, string[]>();
@@ -87,29 +116,36 @@ export function layoutMap(data: MapData): Layout {
   const maxDepth = Math.max(0, ...depth.values());
   for (const r of data.reports) if (!depth.has(r.id)) depth.set(r.id, maxDepth + 1);
 
-  // --- Gruppen (Projekt-Reihenfolge) -------------------------------------------------
+  // --- Gruppen (Projekt-Baum-Reihenfolge) ---------------------------------------------
+  const reportById = new Map(data.reports.map((r) => [r.id, r]));
   const groupOf = (r: MapData["reports"][number]) =>
     r.projectId && projectIds.has(r.projectId) ? r.projectId : external.has(r.id) ? "__ext__" : NO_PROJECT;
   const hasUnassigned = data.reports.some((r) => groupOf(r) === NO_PROJECT);
-  const groupOrder = [...data.projects.map((p) => p.id), NO_PROJECT, "__ext__"];
-  const groupIndex = new Map(groupOrder.map((g, i) => [g, i]));
+  const groupIndex = new Map([...preorder, NO_PROJECT, "__ext__"].map((g, i) => [g, i]));
 
   // --- Knoten anlegen ----------------------------------------------------------------
   const nodes = new Map<string, LayoutNode>();
-  const topNodes: LayoutNode[] = data.projects.map((p) => ({
-    id: p.id,
-    kind: "project",
-    title: p.title,
-    label: "Projekt",
-    status: p.status,
-    layer: 0,
-    x: 0,
-    y: MARGIN_Y,
-    external: false,
-    virtual: false,
-  }));
+  const byLayer: LayoutNode[][] = Array.from({ length: projectRows }, () => []);
+  for (const id of preorder) {
+    const p = data.projects.find((x) => x.id === id)!;
+    const layer = projectDepth.get(id)!;
+    const node: LayoutNode = {
+      id,
+      kind: "project",
+      title: p.title,
+      label: layer === 0 ? "Projekt" : "Unterprojekt",
+      status: p.status,
+      layer,
+      x: 0,
+      y: rowY(layer),
+      external: false,
+      virtual: false,
+    };
+    nodes.set(id, node);
+    byLayer[layer].push(node);
+  }
   if (hasUnassigned) {
-    topNodes.push({
+    const node: LayoutNode = {
       id: NO_PROJECT,
       kind: "project",
       title: "Ohne Projekt",
@@ -117,16 +153,15 @@ export function layoutMap(data: MapData): Layout {
       status: "",
       layer: 0,
       x: 0,
-      y: MARGIN_Y,
+      y: rowY(0),
       external: false,
       virtual: true,
-    });
+    };
+    nodes.set(NO_PROJECT, node);
+    byLayer[0].push(node);
   }
-  for (const n of topNodes) nodes.set(n.id, n);
-
-  const byLayer: LayoutNode[][] = [topNodes];
   for (const r of data.reports) {
-    const layer = depth.get(r.id)! + 1;
+    const layer = projectRows + depth.get(r.id)!;
     const node: LayoutNode = {
       id: r.id,
       kind: "report",
@@ -135,7 +170,7 @@ export function layoutMap(data: MapData): Layout {
       status: r.status,
       layer,
       x: 0,
-      y: MARGIN_Y + layer * (NODE_H + ROW_GAP),
+      y: rowY(layer),
       external: external.has(r.id),
       virtual: false,
     };
@@ -144,9 +179,13 @@ export function layoutMap(data: MapData): Layout {
   }
   for (let i = 0; i < byLayer.length; i++) byLayer[i] ??= [];
 
-  // --- Kanten: Projekt → Report nur, wenn der Report keinen Eltern-Report im selben Projekt hat.
+  // --- Kanten --------------------------------------------------------------------------
   const edgeList: { source: string; target: string; kind: LayoutEdge["kind"] }[] = [];
-  const reportById = new Map(data.reports.map((r) => [r.id, r]));
+  for (const id of preorder) {
+    const parent = parentOf(id);
+    if (parent) edgeList.push({ source: parent, target: id, kind: "project" });
+  }
+  // Projekt → Report nur, wenn der Report keinen Eltern-Report im selben Projekt hat.
   for (const r of data.reports) {
     const g = groupOf(r);
     if (g === "__ext__") continue;
@@ -155,9 +194,13 @@ export function layoutMap(data: MapData): Layout {
   }
   for (const l of links) edgeList.push({ source: l.source, target: l.target, kind: "link" });
   const incoming = new Map<string, string[]>();
-  for (const e of edgeList) (incoming.get(e.target) ?? incoming.set(e.target, []).get(e.target)!).push(e.source);
+  const outgoing = new Map<string, string[]>();
+  for (const e of edgeList) {
+    (incoming.get(e.target) ?? incoming.set(e.target, []).get(e.target)!).push(e.source);
+    (outgoing.get(e.source) ?? outgoing.set(e.source, []).get(e.source)!).push(e.target);
+  }
 
-  // --- Reihenfolge & Position --------------------------------------------------------
+  // --- Positionen ----------------------------------------------------------------------
   const step = NODE_W + GAP_X;
   const place = (layer: LayoutNode[], desired: (n: LayoutNode) => number) => {
     let next = MARGIN_X;
@@ -166,41 +209,62 @@ export function layoutMap(data: MapData): Layout {
       next = n.x + step;
     }
   };
-  // 1. Durchgang: dicht packen, Ebene für Ebene nach Gruppe + Eltern-Mitte sortiert.
-  place(topNodes, () => MARGIN_X);
-  const mean = (n: LayoutNode) => {
-    const xs = (incoming.get(n.id) ?? []).map((p) => nodes.get(p)?.x).filter((x): x is number => x !== undefined);
-    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Number.POSITIVE_INFINITY;
+  const meanOf = (ids: string[] | undefined) => {
+    const xs = (ids ?? []).map((id) => nodes.get(id)?.x).filter((x): x is number => x !== undefined);
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Number.NaN;
   };
-  for (let i = 1; i < byLayer.length; i++) {
-    const layer = byLayer[i];
-    const group = (n: LayoutNode) => groupIndex.get(groupOf(reportById.get(n.id)!)) ?? 99;
-    layer.sort((a, b) => group(a) - group(b) || mean(a) - mean(b) || a.title.localeCompare(b.title, "de"));
+  const centerOverChildren = (n: LayoutNode) => {
+    const xs = (outgoing.get(n.id) ?? []).map((id) => nodes.get(id)!.x);
+    return xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : Number.NaN;
+  };
+  const groupRank = (n: LayoutNode) =>
+    n.kind === "report" ? (groupIndex.get(groupOf(reportById.get(n.id)!)) ?? 99) : (groupIndex.get(n.id) ?? 99);
+  const reportLayers = byLayer.slice(projectRows);
+  const projectLayers = byLayer.slice(0, projectRows);
+
+  // 1. Reports dicht packen: nach Projekt-Baum, dann Eltern-Mitte, dann Titel.
+  for (const layer of reportLayers) {
+    const m = (n: LayoutNode) => {
+      const v = meanOf(incoming.get(n.id));
+      return Number.isNaN(v) ? Number.POSITIVE_INFINITY : v;
+    };
+    layer.sort((a, b) => groupRank(a) - groupRank(b) || m(a) - m(b) || a.title.localeCompare(b.title, "de"));
     place(layer, () => MARGIN_X);
   }
-  // 2. Projekte über ihre Reports der ersten Ebene ziehen.
-  const projectTarget = (p: LayoutNode) => {
-    const xs = edgeList.filter((e) => e.source === p.id).map((e) => nodes.get(e.target)!.x);
-    return xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : MARGIN_X;
+  // 2. Projekte von unten nach oben über ihre Kinder ziehen (Reihenfolge = Baum).
+  const placeProjects = () => {
+    for (let i = projectLayers.length - 1; i >= 0; i--) {
+      const layer = projectLayers[i];
+      layer.sort((a, b) => groupRank(a) - groupRank(b));
+      place(layer, (n) => {
+        const c = centerOverChildren(n);
+        return Number.isNaN(c) ? MARGIN_X : c;
+      });
+    }
   };
-  topNodes.sort((a, b) => projectTarget(a) - projectTarget(b));
-  place(topNodes, projectTarget);
-  // 3. Reports unter ihre Eltern ziehen (ohne Überlappung).
-  for (let i = 1; i < byLayer.length; i++) {
-    place(byLayer[i], (n) => {
-      const m = mean(n);
-      return Number.isFinite(m) ? m : MARGIN_X;
+  placeProjects();
+  // 3. Reports unter ihre Eltern ziehen (ohne Überlappung), dann Projekte erneut zentrieren.
+  for (const layer of reportLayers) {
+    place(layer, (n) => {
+      const v = meanOf(incoming.get(n.id));
+      return Number.isNaN(v) ? MARGIN_X : v;
     });
   }
+  placeProjects();
 
   const all = [...nodes.values()];
   const width = Math.max(...all.map((n) => n.x + NODE_W), MARGIN_X + NODE_W) + MARGIN_X / 2;
-  const layers = byLayer.filter((l) => l.length > 0).length;
   const height = MARGIN_Y * 2 + (byLayer.length - 1) * (NODE_H + ROW_GAP) + NODE_H;
-
   const edges: LayoutEdge[] = edgeList.map((e) => ({
     ...e,
     path: edgePath(nodes.get(e.source)!, nodes.get(e.target)!),
   }));
-  return { nodes: all, edges, width, height, layers };
+  return {
+    nodes: all,
+    edges,
+    width,
+    height,
+    layers: byLayer.filter((l) => l.length > 0).length,
+    projectRows,
+  };
 }

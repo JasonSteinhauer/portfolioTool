@@ -6,7 +6,13 @@ import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { addLink, removeLink } from "@/modules/links/service";
-import { assignReportToProject, createProject, deleteProject, updateProject } from "@/modules/projects/service";
+import {
+  assignReportToProject,
+  createProject,
+  deleteProject,
+  moveProject,
+  updateProject,
+} from "@/modules/projects/service";
 
 const id = z.uuid();
 
@@ -20,6 +26,7 @@ function projectInput(formData: FormData) {
     status: s("status"),
     startedOn: s("startedOn"),
     endedOn: s("endedOn"),
+    parentProjectId: s("parentProjectId"),
   };
 }
 
@@ -94,4 +101,11 @@ export async function removeLinkAction(formData: FormData): Promise<void> {
   revalidatePath(`/app/reports/${target}`);
   revalidatePath("/app/projects", "layout");
   redirect(safeReturn(formData.get("returnTo"), `/app/reports/${target}`));
+}
+
+export async function moveProjectAction(formData: FormData): Promise<void> {
+  const { actor } = await requireOwner();
+  const dir = formData.get("dir") === "up" ? -1 : 1;
+  await moveProject(getDb(), actor, id.parse(formData.get("projectId")), dir);
+  revalidatePath("/app/projects", "layout");
 }

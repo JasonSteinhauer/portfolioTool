@@ -149,7 +149,7 @@ export type MapReport = {
   status: string;
   projectId: string | null;
 };
-export type MapProject = { id: string; title: string; status: string };
+export type MapProject = { id: string; title: string; status: string; parentProjectId?: string | null };
 export type MapData = {
   projects: MapProject[];
   reports: MapReport[];
@@ -169,17 +169,32 @@ export async function getMapData(db: Db, actor: Actor, filter: { projectId?: str
   assertCan(actor, "project:read");
   const projectId = filter.projectId && z.uuid().safeParse(filter.projectId).success ? filter.projectId : undefined;
 
-  const projects = await db
-    .select({ id: schema.projects.id, title: schema.projects.title, status: schema.projects.status })
+  const allProjects = await db
+    .select({
+      id: schema.projects.id,
+      title: schema.projects.title,
+      status: schema.projects.status,
+      parentProjectId: schema.projects.parentProjectId,
+    })
     .from(schema.projects)
-    .where(
-      and(
-        eq(schema.projects.ownerId, actor.userId),
-        isNull(schema.projects.deletedAt),
-        projectId ? eq(schema.projects.id, projectId) : undefined,
-      ),
-    )
-    .orderBy(schema.projects.createdAt);
+    .where(and(eq(schema.projects.ownerId, actor.userId), isNull(schema.projects.deletedAt)))
+    .orderBy(schema.projects.sortOrder, schema.projects.createdAt);
+  // Gefiltert: das Projekt samt aller Unterprojekte.
+  let scope: Set<string> | null = null;
+  if (projectId) {
+    scope = new Set([projectId]);
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const p of allProjects) {
+        if (p.parentProjectId && scope.has(p.parentProjectId) && !scope.has(p.id)) {
+          scope.add(p.id);
+          grew = true;
+        }
+      }
+    }
+    if (!allProjects.some((p) => p.id === projectId)) scope = new Set();
+  }
+  const projects = scope ? allProjects.filter((p) => scope.has(p.id)) : allProjects;
 
   const reportSelect = {
     id: schema.reports.id,
@@ -194,7 +209,7 @@ export async function getMapData(db: Db, actor: Actor, filter: { projectId?: str
     .select(reportSelect)
     .from(schema.reports)
     .innerJoin(schema.reportTypes, eq(schema.reports.reportTypeId, schema.reportTypes.id))
-    .where(and(base, projectId ? eq(schema.reports.projectId, projectId) : undefined))
+    .where(and(base, scope ? (scope.size > 0 ? inArray(schema.reports.projectId, [...scope]) : sql`false`) : undefined))
     .orderBy(schema.reports.createdAt)
     .limit(MAP_REPORT_LIMIT);
 

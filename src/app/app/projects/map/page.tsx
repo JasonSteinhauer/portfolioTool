@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
 import { getMapData } from "@/modules/links/service";
-import { listProjects } from "@/modules/projects/service";
+import { listProjects, toProjectTree } from "@/modules/projects/service";
 import { Meta } from "@/ui/card";
 import { layoutMap, type LayoutNode } from "@/ui/map/layout";
 import { MapLegend, ReportMap } from "@/ui/map/report-map";
@@ -24,7 +24,10 @@ export default async function MapPage({
   const projectId = typeof raw.project === "string" && raw.project ? raw.project : undefined;
   const selectedId = typeof raw.selected === "string" ? raw.selected : undefined;
   const db = getDb();
-  const [data, projects] = await Promise.all([getMapData(db, actor, { projectId }), listProjects(db, actor)]);
+  const [data, projects] = await Promise.all([
+    getMapData(db, actor, { projectId }),
+    listProjects(db, actor).then(toProjectTree),
+  ]);
   const layout = layoutMap(data);
 
   const query = (extra: Record<string, string | undefined>) => {
@@ -68,6 +71,7 @@ export default async function MapPage({
                 <option value="">Alle Projekte</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
+                    {"— ".repeat(p.depth - 1)}
                     {p.title}
                   </option>
                 ))}

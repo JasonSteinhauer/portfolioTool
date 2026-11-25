@@ -18,6 +18,8 @@ const select =
 export function ProjectForm({
   action,
   project,
+  parents,
+  defaultParentId,
   submitLabel,
 }: {
   action: (state: ProjectFormState, formData: FormData) => Promise<ProjectFormState>;
@@ -28,7 +30,11 @@ export function ProjectForm({
     status: string;
     startedOn: string | null;
     endedOn: string | null;
+    parentProjectId: string | null;
   };
+  /** Mögliche Elternprojekte (bereits ohne das Projekt selbst und seine Unterprojekte), mit Ebene. */
+  parents: { id: string; title: string; depth: number }[];
+  defaultParentId?: string;
   submitLabel: string;
 }) {
   const [state, submit, pending] = useActionState<ProjectFormState, FormData>(action, {});
@@ -43,6 +49,28 @@ export function ProjectForm({
       </Field>
       <Field label="Kurzbeschreibung" hint="Worum geht es? Ein bis drei Sätze." error={e.summary}>
         {(f) => <Textarea {...f} name="summary" defaultValue={project?.summary ?? ""} maxLength={2000} />}
+      </Field>
+      <Field
+        label="Übergeordnetes Projekt"
+        hint="Optional – für Unterprojekte (höchstens 3 Ebenen)."
+        error={e.parentProjectId}
+      >
+        {(f) => (
+          <select
+            {...f}
+            name="parentProjectId"
+            defaultValue={project?.parentProjectId ?? defaultParentId ?? ""}
+            className={select}
+          >
+            <option value="">– keines (oberste Ebene) –</option>
+            {parents.map((p) => (
+              <option key={p.id} value={p.id}>
+                {"— ".repeat(p.depth - 1)}
+                {p.title}
+              </option>
+            ))}
+          </select>
+        )}
       </Field>
       <div className="grid gap-5 sm:grid-cols-3">
         <Field label="Status" error={e.status}>

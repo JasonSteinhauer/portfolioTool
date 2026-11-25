@@ -26,3 +26,11 @@ inklusive Zugehörigkeit zu Projekten.
   und Projekt-Start/-Ende. Keine Prozentwerte oder Punktzahlen.
 - **KI-Assistent** bündelt offene Vorschläge aller Reports und Seiten, Status und Budget; gestartet wird die KI
   weiterhin im jeweiligen Report bzw. auf der Seite.
+
+## Nachtrag (25.11.2026): Unterprojekte und Sortierung
+
+- Projekte können ein übergeordnetes Projekt haben (`projects.parent_project_id`), **höchstens 3 Ebenen**,
+  ohne Kreise (geprüft beim Anlegen/Bearbeiten). Gelöschte Projekte geben ihre Unterprojekte an den eigenen
+  Elternteil weiter.
+- **Manuelle Reihenfolge** unter Geschwistern (`sort_order`, ↑/↓ in der Projektliste).
+- Die Karte zeigt Projekte → Unterprojekte → Reports; der Projektfilter umfasst alle Unterprojekte.
