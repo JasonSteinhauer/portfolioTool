@@ -21,6 +21,10 @@ Jedes Inkrement endet mit grünen Tests. Deployments und kostenpflichtige Dienst
 - [ ] **8 Härtung & Abnahme:** ✓ verschlüsseltes Backup + Restore-Test, ✓ A11y (axe, WCAG 2.2 AA), ✓ Responsiveness,
       ✓ DoD-Abnahmetest (`docs/abnahme.md`), ✓ R2-Adapter · offen: Produktions-Deployment (`docs/deployment.md`)
 
+- [x] **9 Struktur:** Projekte (anlegen, zuordnen, löschen), Report-Verknüpfungen ohne Kreise, Karte der
+      Hierarchie (Projekte → Reports, von oben nach unten), Entwicklung (Fachgebiete, Kompetenzen mit Belegen,
+      Timeline), KI-Assistent (offene Vorschläge, Budget)
+
 ## Danach
 
 - **V2** Visuelle KI-Komposition · **V3** Portfolio-Agent · **V4** Erweiterte Verwaltung

@@ -46,6 +46,7 @@ export const BACKUP_TABLES = [
   "reports",
   "report_versions",
   "report_competencies",
+  "report_links",
   "media_assets",
   "report_media",
   "portfolio_pages",

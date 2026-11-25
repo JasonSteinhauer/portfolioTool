@@ -12,6 +12,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   customType,
   date,
   index,
@@ -294,6 +295,29 @@ export const reportCompetencies = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.reportId, t.competencyId] })],
+);
+
+/**
+ * Gerichtete Verknüpfung zwischen Reports: `source` steht in der Hierarchie ÜBER `target`
+ * („target baut auf source auf“). Zyklen werden in der Fachlogik verhindert.
+ */
+export const reportLinks = pgTable(
+  "report_links",
+  {
+    ownerId: ownerId(),
+    sourceReportId: uuid("source_report_id")
+      .notNull()
+      .references(() => reports.id, { onDelete: "cascade" }),
+    targetReportId: uuid("target_report_id")
+      .notNull()
+      .references(() => reports.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sourceReportId, t.targetReportId] }),
+    index("report_links_target_idx").on(t.targetReportId),
+    check("report_links_no_self", sql`${t.sourceReportId} <> ${t.targetReportId}`),
+  ],
 );
 
 // ---------------------------------------------------------------------------
