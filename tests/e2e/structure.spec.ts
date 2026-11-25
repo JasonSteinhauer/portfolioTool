@@ -87,6 +87,44 @@ test("Projekt anlegen und Reports zuordnen", async () => {
   await expect(owner.getByLabel("Projekt", { exact: true })).toHaveValue(/[0-9a-f-]{36}/);
 });
 
+test("Unterprojekte anlegen und sortieren", async () => {
+  await owner.goto("/app/projects");
+  await owner.getByRole("link", { name: "+ Unterprojekt in „Lab-Umgebung (synthetisch)“" }).click();
+  await expect(owner.getByLabel("Übergeordnetes Projekt")).toHaveValue(/[0-9a-f-]{36}/);
+  await owner.getByLabel("Titel").fill("Teilprojekt A");
+  await owner.getByRole("button", { name: "Projekt anlegen" }).click();
+  await expect(owner).toHaveURL(/\/app\/projects\/[0-9a-f-]+$/);
+  await expect(owner.getByRole("navigation", { name: "Übergeordnete Projekte" })).toContainText(
+    "Lab-Umgebung (synthetisch)",
+  );
+
+  await owner.goto(`/app/projects/new?parent=${projectUrl.split("/").pop()}`);
+  await owner.getByLabel("Titel").fill("Teilprojekt B");
+  await owner.getByRole("button", { name: "Projekt anlegen" }).click();
+  await expect(owner).toHaveURL(/\/app\/projects\/[0-9a-f-]+$/);
+
+  await owner.goto("/app/projects");
+  const list = owner.getByTestId("project-list");
+  const titles = async () =>
+    (await list.locator("li").allInnerTexts()).map(
+      (t) =>
+        t
+          .split("\n")
+          .map((l) => l.replace("└", "").trim())
+          .find(Boolean) ?? "",
+    );
+  expect((await titles()).slice(0, 3)).toEqual(["Lab-Umgebung (synthetisch)", "Teilprojekt A", "Teilprojekt B"]);
+  await owner.getByRole("button", { name: "„Teilprojekt B“ nach oben" }).click();
+  await expect
+    .poll(async () => (await titles()).slice(0, 3))
+    .toEqual(["Lab-Umgebung (synthetisch)", "Teilprojekt B", "Teilprojekt A"]);
+  await expect(list.locator('li[data-depth="2"]')).toHaveCount(2);
+  await audit(owner, "Projekt-Baum");
+
+  await owner.goto(projectUrl);
+  await expect(owner.getByTestId("subprojects")).toContainText("Teilprojekt B");
+});
+
 test("Reports verknüpfen – Kreise werden abgelehnt", async () => {
   await owner.goto(`/app/reports/${reports.follow}`);
   const panel = owner.getByTestId("report-structure");

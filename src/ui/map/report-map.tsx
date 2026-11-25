@@ -58,7 +58,7 @@ export function ReportMap({
               y={MARGIN_Y + i * (NODE_H + ROW_GAP) + NODE_H / 2 + 4}
               className="fill-text-secondary font-mono text-[11px] tracking-[0.08em]"
             >
-              {i === 0 ? "PROJEKTE" : `EBENE ${i}`}
+              {i === 0 ? "PROJEKTE" : i < layout.projectRows ? "UNTERPROJ." : `EBENE ${i - layout.projectRows + 1}`}
             </text>
           ))}
           <g fill="none">

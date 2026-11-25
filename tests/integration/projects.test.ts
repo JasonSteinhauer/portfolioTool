@@ -192,3 +192,60 @@ describe("Entwicklung", () => {
     expect(await dev.listCompetencies(db, alice)).toHaveLength(1);
   });
 });
+
+describe("Unterprojekte", () => {
+  it("verschachtelt bis 3 Ebenen, verhindert Kreise und sortiert Geschwister", async () => {
+    const mod = await import("@/modules/projects/service");
+    const make = async (title: string, parentProjectId = "") => {
+      const r = await createProject(db, alice, project(title, { parentProjectId }));
+      if (!r.ok) throw new Error(JSON.stringify(r.fieldErrors));
+      return r.id;
+    };
+    const top = await make("Studium (Baum)");
+    const mid = await make("Praxisphase (Baum)", top);
+    const leaf = await make("KI-Triage (Baum)", mid);
+
+    // Ebene 4 ist zu tief.
+    const tooDeep = await createProject(db, alice, project("Zu tief", { parentProjectId: leaf }));
+    expect(tooDeep.ok).toBe(false);
+    if (!tooDeep.ok) expect(tooDeep.fieldErrors.parentProjectId).toMatch(/3 Ebenen/);
+    // Kreis: Studium unter KI-Triage hängen.
+    const cycle = await updateProject(db, alice, top, project("Studium (Baum)", { parentProjectId: leaf }));
+    expect(cycle.ok).toBe(false);
+    // Fremdes Elternprojekt.
+    const foreign = await createProject(db, mallory, project("Fremd-Kind", { parentProjectId: top }));
+    expect(foreign.ok).toBe(false);
+
+    const tree = mod.toProjectTree(await listProjects(db, alice));
+    const ids = tree.map((p) => p.id);
+    expect(ids.indexOf(top)).toBeLessThan(ids.indexOf(mid));
+    expect(ids.indexOf(mid)).toBeLessThan(ids.indexOf(leaf));
+    expect(tree.find((p) => p.id === leaf)?.depth).toBe(3);
+    expect(await mod.projectAncestors(db, alice, leaf)).toEqual([
+      { id: top, title: "Studium (Baum)" },
+      { id: mid, title: "Praxisphase (Baum)" },
+    ]);
+
+    // Reports inkl. Unterprojekte und Karte des Projekts samt Unterprojekten.
+    const r = await createReport(db, alice, { typeKey: "learning" });
+    await assignReportToProject(db, alice, r.id, leaf);
+    expect(await listProjectReports(db, alice, top)).toEqual([]);
+    expect((await listProjectReports(db, alice, top, { includeSubprojects: true })).map((x) => x.id)).toEqual([r.id]);
+    const map = await getMapData(db, alice, { projectId: top });
+    expect(map.projects.map((p) => p.id).sort()).toEqual([top, mid, leaf].sort());
+    expect(map.reports.map((x) => x.id)).toEqual([r.id]);
+
+    // Sortieren unter Geschwistern.
+    const sibling = await make("Zweites Unterprojekt", top);
+    await mod.moveProject(db, alice, sibling, -1);
+    let children = (await listProjects(db, alice)).filter((p) => p.parentProjectId === top);
+    expect(children.sort((a, b) => a.sortOrder - b.sortOrder).map((p) => p.id)).toEqual([sibling, mid]);
+    await mod.moveProject(db, alice, sibling, -1); // schon oben: keine Änderung
+    children = (await listProjects(db, alice)).filter((p) => p.parentProjectId === top);
+    expect(children.sort((a, b) => a.sortOrder - b.sortOrder).map((p) => p.id)).toEqual([sibling, mid]);
+
+    // Löschen: Unterprojekte rücken nach oben.
+    await deleteProject(db, alice, mid);
+    expect((await getProject(db, alice, leaf)).parentProjectId).toBe(top);
+  });
+});

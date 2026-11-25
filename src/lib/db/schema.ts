@@ -11,6 +11,7 @@
  */
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   customType,
@@ -199,6 +200,10 @@ export const projects = pgTable(
     id: id(),
     ownerId: ownerId(),
     subjectAreaId: uuid("subject_area_id").references(() => subjectAreas.id, { onDelete: "set null" }),
+    /** Übergeordnetes Projekt (max. 3 Ebenen, ohne Kreise – geprüft in der Fachlogik). */
+    parentProjectId: uuid("parent_project_id").references((): AnyPgColumn => projects.id, { onDelete: "set null" }),
+    /** Manuelle Reihenfolge unter Geschwistern. */
+    sortOrder: integer("sort_order").notNull().default(0),
     title: text("title").notNull(),
     slug: text("slug").notNull(),
     summary: text("summary"),
@@ -209,7 +214,10 @@ export const projects = pgTable(
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
   },
-  (t) => [uniqueIndex("projects_owner_slug_uq").on(t.ownerId, t.slug)],
+  (t) => [
+    uniqueIndex("projects_owner_slug_uq").on(t.ownerId, t.slug),
+    index("projects_parent_idx").on(t.parentProjectId),
+  ],
 );
 
 // ---------------------------------------------------------------------------
