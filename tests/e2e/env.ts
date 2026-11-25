@@ -93,6 +93,12 @@ export const E2E_DOD_OWNERS = {
   },
 } as const;
 
+/** Owner ohne 2FA für Projekte, Karte, Entwicklung und KI-Assistent. */
+export const E2E_STRUCTURE_OWNERS = {
+  desktop: { email: "e2e-structure-desktop@example.test", name: "Struktur Desktop", ip: "198.51.100.230" },
+  mobile: { email: "e2e-structure-mobile@example.test", name: "Struktur Mobile", ip: "198.51.100.240" },
+} as const;
+
 /** IPs der „Betrachter“ eines Freigabelinks (fremder Browser ohne Konto). */
 export const E2E_VIEWER_IPS = { desktop: "198.51.100.70", mobile: "198.51.100.80" } as const;
 

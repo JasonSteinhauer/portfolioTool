@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import * as schema from "@/lib/db/schema";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
@@ -216,4 +216,55 @@ export async function runAiJob<T>(
     },
   });
   throw new AiJobFailedError(failure, created.id);
+}
+
+/**
+ * Offene KI-Vorschläge über alle Reports und Seiten hinweg – gruppiert nach Ziel, mit Titel.
+ * Gelöschte Ziele werden ausgeblendet.
+ */
+export async function listOpenProposalTargets(db: Db, actor: Actor) {
+  assertCan(actor, "ai_job:read");
+  const rows = await db
+    .select({
+      targetType: schema.aiProposals.targetType,
+      targetId: schema.aiProposals.targetId,
+      count: sql<number>`count(*)::int`,
+      latest: sql<Date>`max(${schema.aiProposals.createdAt})`,
+      reportTitle: schema.reports.title,
+      pageTitle: schema.portfolioPages.title,
+    })
+    .from(schema.aiProposals)
+    .innerJoin(schema.aiJobs, eq(schema.aiJobs.id, schema.aiProposals.aiJobId))
+    .leftJoin(
+      schema.reports,
+      and(
+        eq(schema.aiProposals.targetType, "report"),
+        eq(schema.reports.id, schema.aiProposals.targetId),
+        isNull(schema.reports.deletedAt),
+      ),
+    )
+    .leftJoin(
+      schema.portfolioPages,
+      and(
+        eq(schema.aiProposals.targetType, "portfolio_page"),
+        eq(schema.portfolioPages.id, schema.aiProposals.targetId),
+      ),
+    )
+    .where(and(eq(schema.aiJobs.ownerId, actor.userId), eq(schema.aiProposals.status, "pending")))
+    .groupBy(
+      schema.aiProposals.targetType,
+      schema.aiProposals.targetId,
+      schema.reports.title,
+      schema.portfolioPages.title,
+    )
+    .orderBy(desc(sql`max(${schema.aiProposals.createdAt})`));
+  return rows
+    .filter((r) => r.targetId && (r.reportTitle ?? r.pageTitle))
+    .map((r) => ({
+      type: r.targetType as "report" | "portfolio_page",
+      id: r.targetId!,
+      title: (r.reportTitle ?? r.pageTitle)!,
+      count: r.count,
+      latest: new Date(r.latest),
+    }));
 }

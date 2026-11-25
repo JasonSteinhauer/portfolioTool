@@ -4,7 +4,14 @@ import { notFound } from "next/navigation";
 import { ReportDocument } from "@/content/report-document";
 import { getDb } from "@/lib/db/client";
 import { requireOwner } from "@/modules/auth/session";
-import { getReport, ReportNotFoundError } from "@/modules/reports/service";
+import { getReport, listReports, ReportNotFoundError } from "@/modules/reports/service";
+import { listLinks, type LinkedReport } from "@/modules/links/service";
+import { listProjects } from "@/modules/projects/service";
+import { assignReportAction, removeLinkAction } from "../../projects/actions";
+import { LinkForm } from "./link-form";
+import { listCompetencies, listReportCompetencies } from "@/modules/development/service";
+import { AttachCompetencyForm } from "../../development/dev-forms";
+import { detachCompetencyAction } from "../../development/actions";
 import { Button } from "@/ui/button";
 import { Badge, Meta } from "@/ui/card";
 import { PageHeader } from "@/ui/workspace-shell";
@@ -39,10 +46,21 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     throw error;
   });
 
-  const [favorites, pendingAi] = await Promise.all([
+  const [favorites, pendingAi, links, projects, allReports] = await Promise.all([
     listFavoriteIds(getDb(), actor, "report"),
     listProposals(getDb(), actor, { type: "report", id: report.id }),
+    listLinks(getDb(), actor, report.id),
+    listProjects(getDb(), actor),
+    listReports(getDb(), actor, {}, 300),
   ]);
+  const [reportCompetencies, allCompetencies] = await Promise.all([
+    listReportCompetencies(getDb(), actor, report.id),
+    listCompetencies(getDb(), actor),
+  ]);
+  const attached = new Set(reportCompetencies.map((c) => c.id));
+  const linked = new Set([...links.buildsOn, ...links.leadsTo].map((l) => l.id));
+  const linkOptions = allReports.filter((r) => r.id !== report.id && !linked.has(r.id));
+  const self = `/app/reports/${report.id}`;
   const favorite = favorites.has(report.id);
   const aiDisabled = !aiRuntime().provider
     ? "KI ist nicht eingerichtet."
@@ -112,6 +130,80 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </div>
         <aside className="flex flex-col gap-6">
           <section
+            aria-labelledby="structure-heading"
+            className="flex flex-col gap-4 border-2 border-border-default bg-surface p-5"
+            data-testid="report-structure"
+          >
+            <h2 id="structure-heading" className="text-sm font-semibold">
+              Projekt &amp; Verknüpfungen
+            </h2>
+            <form action={assignReportAction} className="flex flex-col gap-2">
+              <input type="hidden" name="reportId" value={report.id} />
+              <input type="hidden" name="returnTo" value={self} />
+              <label htmlFor="report-project" className="text-xs text-text-secondary">
+                Projekt
+              </label>
+              <div className="flex gap-2">
+                <select
+                  id="report-project"
+                  name="projectId"
+                  defaultValue={report.projectId ?? ""}
+                  className="h-8 min-w-0 flex-1 border-2 border-border-default bg-bg px-2 text-sm focus-visible:border-accent focus-visible:outline-none"
+                >
+                  <option value="">Ohne Projekt</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+                <Button type="submit" size="sm" variant="secondary">
+                  Zuordnen
+                </Button>
+              </div>
+            </form>
+            <LinkList title="Baut auf" items={links.buildsOn} reportId={report.id} side="source" self={self} />
+            <LinkList title="Führt zu" items={links.leadsTo} reportId={report.id} side="target" self={self} />
+            <LinkForm reportId={report.id} options={linkOptions.map((r) => ({ id: r.id, title: r.title }))} />
+            <Link
+              href={`/app/projects/map?${report.projectId ? `project=${report.projectId}&` : ""}selected=${report.id}`}
+              className="text-sm underline decoration-accent underline-offset-4"
+            >
+              Auf der Karte zeigen
+            </Link>
+          </section>
+          <section
+            aria-labelledby="competencies-heading"
+            className="flex flex-col gap-3 border-2 border-border-default bg-surface p-5"
+          >
+            <h2 id="competencies-heading" className="text-sm font-semibold">
+              Kompetenzen (Belege)
+            </h2>
+            {reportCompetencies.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {reportCompetencies.map((c) => (
+                  <li key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="min-w-0">
+                      {c.name}
+                      {c.note ? <span className="block text-xs text-text-secondary">{c.note}</span> : null}
+                    </span>
+                    <form action={detachCompetencyAction}>
+                      <input type="hidden" name="reportId" value={report.id} />
+                      <input type="hidden" name="competencyId" value={c.id} />
+                      <Button type="submit" variant="ghost" size="sm" aria-label={`Kompetenz „${c.name}“ entfernen`}>
+                        ×
+                      </Button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <AttachCompetencyForm
+              reportId={report.id}
+              options={allCompetencies.filter((c) => !attached.has(c.id)).map((c) => ({ id: c.id, name: c.name }))}
+            />
+          </section>
+          <section
             aria-labelledby="ai-heading"
             className="flex flex-col gap-3 border-2 border-border-default bg-surface p-5"
           >
@@ -154,5 +246,50 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </aside>
       </div>
     </article>
+  );
+}
+
+function LinkList({
+  title,
+  items,
+  reportId,
+  side,
+  self,
+}: {
+  title: string;
+  items: LinkedReport[];
+  reportId: string;
+  /** Rolle des ANDEREN Reports in der Verknüpfung. */
+  side: "source" | "target";
+  self: string;
+}) {
+  return (
+    <div>
+      <Meta>{title}</Meta>
+      {items.length === 0 ? (
+        <p className="mt-1 text-xs text-text-secondary">–</p>
+      ) : (
+        <ul className="mt-1 flex flex-col gap-1">
+          {items.map((l) => (
+            <li key={l.id} className="flex items-center justify-between gap-2 text-sm">
+              <Link
+                href={`/app/reports/${l.id}`}
+                className="min-w-0 truncate underline decoration-accent underline-offset-4"
+              >
+                {l.title}
+              </Link>
+              <form action={removeLinkAction}>
+                <input type="hidden" name="sourceId" value={side === "source" ? l.id : reportId} />
+                <input type="hidden" name="targetId" value={side === "source" ? reportId : l.id} />
+                <input type="hidden" name="returnTo" value={self} />
+                <Button type="submit" variant="ghost" size="sm" aria-label={`Verknüpfung mit „${l.title}“ entfernen`}>
+                  ×
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

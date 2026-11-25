@@ -1,0 +1,81 @@
+import { describe, expect, it } from "vitest";
+import type { MapData } from "@/modules/links/service";
+import { layoutMap, NODE_H, NODE_W, NO_PROJECT } from "@/ui/map/layout";
+
+const report = (id: string, projectId: string | null = null) => ({
+  id,
+  title: id,
+  typeName: "Lernbericht",
+  status: "draft",
+  projectId,
+});
+
+function overlaps(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return Math.abs(a.x - b.x) < NODE_W && Math.abs(a.y - b.y) < NODE_H;
+}
+
+describe("Karten-Layout", () => {
+  const data: MapData = {
+    projects: [
+      { id: "p1", title: "Projekt 1", status: "active" },
+      { id: "p2", title: "Projekt 2", status: "active" },
+    ],
+    reports: [report("a", "p1"), report("b", "p1"), report("c", "p1"), report("d", "p2"), report("e")],
+    links: [
+      { source: "a", target: "c" },
+      { source: "b", target: "c" },
+      { source: "c", target: "d" },
+    ],
+    externalIds: [],
+  };
+
+  it("ordnet Ebenen nach dem längsten Weg von oben nach unten", () => {
+    const layout = layoutMap(data);
+    const layer = Object.fromEntries(layout.nodes.map((n) => [n.id, n.layer]));
+    expect(layer).toMatchObject({ p1: 0, p2: 0, a: 1, b: 1, c: 2, d: 3, e: 1 });
+    expect(layout.nodes.find((n) => n.id === NO_PROJECT)?.virtual).toBe(true);
+    for (const e of layout.edges) {
+      const s = layout.nodes.find((n) => n.id === e.source)!;
+      const t = layout.nodes.find((n) => n.id === e.target)!;
+      expect(t.y).toBeGreaterThan(s.y);
+    }
+  });
+
+  it("zeichnet Projektkanten nur zu Reports ohne Eltern im selben Projekt", () => {
+    const projectEdges = layoutMap(data)
+      .edges.filter((e) => e.kind === "project")
+      .map((e) => `${e.source}>${e.target}`)
+      .sort();
+    // d hat einen Eltern-Report (c) – aber aus Projekt 1, daher gehört d sichtbar zu Projekt 2.
+    expect(projectEdges).toEqual(["p1>a", "p1>b", "p2>d", `${NO_PROJECT}>e`].sort());
+  });
+
+  it("lässt keine Knoten überlappen und hält die Fläche groß genug", () => {
+    const layout = layoutMap(data);
+    for (const a of layout.nodes)
+      for (const b of layout.nodes) if (a !== b) expect(overlaps(a, b), `${a.id}/${b.id}`).toBe(false);
+    for (const n of layout.nodes) {
+      expect(n.x + NODE_W).toBeLessThanOrEqual(layout.width);
+      expect(n.y + NODE_H).toBeLessThanOrEqual(layout.height);
+    }
+  });
+
+  it("übersteht Kreise in fehlerhaften Daten", () => {
+    const layout = layoutMap({
+      projects: [],
+      reports: [report("x"), report("y")],
+      links: [
+        { source: "x", target: "y" },
+        { source: "y", target: "x" },
+      ],
+      externalIds: [],
+    });
+    expect(layout.nodes).toHaveLength(3);
+  });
+
+  it("kommt mit leerer Karte zurecht", () => {
+    const layout = layoutMap({ projects: [], reports: [], links: [], externalIds: [] });
+    expect(layout.nodes).toEqual([]);
+    expect(layout.width).toBeGreaterThan(0);
+  });
+});
